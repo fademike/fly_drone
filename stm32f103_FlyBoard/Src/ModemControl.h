@@ -2,7 +2,7 @@
 
 #include "stm32f1xx_hal.h"
 
-#define nRF24//nRF24	//SI4463
+//#define nRF24//nRF24	//SI4463
 
 typedef enum  {
 	STATE_IDLE 				= 0,
@@ -31,14 +31,15 @@ typedef enum  {
 
 
 
-#define READCMDSTREAM_ARRAY 10
+//#define READCMDSTREAM_ARRAY 10
 
 #define SYNCHRO_MODE 1	// 1- synchronization mode; 0- simple mode. More in stm8+si4463 project
 ////////////////////////////For SYNCHRO_MODE :
 #define SYNCHRO_TIME 500                                                        // sync time
-#define SYNCHRO_TWAIT 6*4//6*4                                                       // TIMEOUT of ANSWER = (TIME of TX 1 packet) + SYNCHRO_TWAIT    // 10bps - 100 TWAIT(57us); 100kbps - 6TWAIT(6us)
+#define SYNCHRO_TWAIT 20//6*4                                                       // TIMEOUT of ANSWER = (TIME of TX 1 packet) + SYNCHRO_TWAIT    // 10bps - 100 TWAIT(57us); 100kbps - 6TWAIT(6us)
 
-
+//DELETE									//circular buffer for send out by RF
+#define UART_BUF_SIZE 3	//255 TODO FIXME			// buffer lenght
 
 
 #define MODEM_PINCONTROL 0	// For debug pin output

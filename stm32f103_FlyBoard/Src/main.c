@@ -116,6 +116,7 @@
 ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c2;
 
 IWDG_HandleTypeDef hiwdg;
 
@@ -153,6 +154,7 @@ static void MX_TIM1_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 
 
@@ -163,8 +165,8 @@ static void MX_SPI2_Init(void);
 /* USER CODE BEGIN 0 */
 
 // if i2c interface not disabled, then read/write uSD card by SPI will be not correct
-#define EN_I2C if(1)SET_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN) 		//disable I2c
-#define DIS_I2C if(1)CLEAR_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN) 	//disable I2c
+#define EN_I2C if(CONFLICT)SET_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN) 		//disable I2c
+#define DIS_I2C if(CONFLICT)CLEAR_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN) 	//disable I2c
 
 
 #define TPS1 HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_SET)
@@ -241,11 +243,12 @@ int main(void)
   MX_TIM4_Init();
   MX_I2C1_Init();
   MX_SPI2_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
 
   //CLEAR_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN); //disable I2c		//TODO uncomment
 
-  DIS_I2C;
+  if (CONFLICT)DIS_I2C;
 
   //HAL_UART_Transmit(&huart1, "hellooooooo", 10, 500);
 
@@ -305,6 +308,7 @@ int main(void)
 		  	  	break;
 	  	  case(thread_test):
 				Printf("test %d, %d, %d\n\r", (int)imu_getPitch(), (int)imu_getRoll(), (int)imu_getYaw());
+				//Printf("st %d, %d, %d\n\r", (int)imu_getStatus(), (int)ModemControl_getStatus(), (int)imu_getPitch());
 	  			break;
 	  	  case(thread_ModemControl):
 				ModemControl_Work();
@@ -449,6 +453,40 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.ClockSpeed = 400000;
+  hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -850,10 +888,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, PIN_TEST3_Pin|SDCARD_SS_Pin|SPI1_NSS_Pin|SI_SDN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, SDCARD_SS_Pin|SPI1_NSS_Pin|SI_SDN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : BTN1_Pin PC14 */
   GPIO_InitStruct.Pin = BTN1_Pin|GPIO_PIN_14;
@@ -874,6 +915,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PIN_TEST3_Pin */
+  GPIO_InitStruct.Pin = PIN_TEST3_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(PIN_TEST3_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : PIN_TEST_Pin */
   GPIO_InitStruct.Pin = PIN_TEST_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -881,8 +929,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(PIN_TEST_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PIN_TEST3_Pin SDCARD_SS_Pin SPI1_NSS_Pin SI_SDN_Pin */
-  GPIO_InitStruct.Pin = PIN_TEST3_Pin|SDCARD_SS_Pin|SPI1_NSS_Pin|SI_SDN_Pin;
+  /*Configure GPIO pins : SDCARD_SS_Pin SPI1_NSS_Pin SI_SDN_Pin */
+  GPIO_InitStruct.Pin = SDCARD_SS_Pin|SPI1_NSS_Pin|SI_SDN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

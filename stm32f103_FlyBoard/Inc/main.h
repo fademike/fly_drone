@@ -64,10 +64,10 @@ void Error_Handler(void);
 #define BTN1_GPIO_Port GPIOC
 #define PIN_TEST2_Pin GPIO_PIN_15
 #define PIN_TEST2_GPIO_Port GPIOC
+#define PIN_TEST3_Pin GPIO_PIN_1
+#define PIN_TEST3_GPIO_Port GPIOD
 #define PIN_TEST_Pin GPIO_PIN_2
 #define PIN_TEST_GPIO_Port GPIOA
-#define PIN_TEST3_Pin GPIO_PIN_11
-#define PIN_TEST3_GPIO_Port GPIOB
 #define SDCARD_SS_Pin GPIO_PIN_12
 #define SDCARD_SS_GPIO_Port GPIOB
 #define SPI1_NSS_Pin GPIO_PIN_6
@@ -87,7 +87,13 @@ void SYS_myTick(void);
 void TimerIRQ_Handler (void);
 
 #include "MPU9250.h"
+#define MPU6050 0
+#define MPU9250 1
+#define MPU_CHIP MPU9250
+#define hi2cN hi2c1	// num i2c	1 with conflict. 2 without conflict
+#define CONFLICT 1 // conflict between i2c and spi
 
+#define SI4463//nRF24	//SI4463
 
 #include <stdint.h>
 

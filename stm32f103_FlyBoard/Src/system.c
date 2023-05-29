@@ -171,10 +171,10 @@ int Battery_getBatPercent(void){
 void Battery_Read(void){
 	//static float f_voltage = 0;
 	const int undervoltage = 3000;
-	const float multiplier = 11.7;	//res divider
+	const float multiplier = 11.0;	//res divider
 
 	int adc = Read_ADC_Channel(0);
-	int calc_mV=((adc*3300)/0xFFF) * multiplier;
+	int calc_mV=((adc*3000)/0xFFF) * multiplier;
 	//if (voltage == 0) voltage = calc_mV;
 	//else
 		voltage += (calc_mV - voltage)*(0.5f);

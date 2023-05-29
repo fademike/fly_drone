@@ -16,18 +16,18 @@ int writeFLASH(int * d);
 
 #define PARAM_ALL 12
 
-struct param_struct t_param[PARAM_ALL] = {	{"flash_params", {.FLOAT=0}, MAV_PARAM_TYPE_REAL32},//MAV_PARAM_TYPE_INT8},
-											{"f_kp", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},
-											{"f_ki", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
-											{"pid_pr_p", {.FLOAT=0.3f}, MAV_PARAM_TYPE_REAL32},
-											{"pid_pr_d", {.FLOAT=0.4f}, MAV_PARAM_TYPE_REAL32},
-											{"pid_pr_i", {.FLOAT=0.5f}, MAV_PARAM_TYPE_REAL32},
-											{"mux_pr_chan", {.FLOAT=0.5f}, MAV_PARAM_TYPE_REAL32},
-											{"mux_y_chan", {.FLOAT=0.5f}, MAV_PARAM_TYPE_REAL32},
-											{"pid_y_p", {.FLOAT=0.3f}, MAV_PARAM_TYPE_REAL32},
-											{"pid_y_d", {.FLOAT=0.4f}, MAV_PARAM_TYPE_REAL32},
-											{"pid_y_i", {.FLOAT=0.5f}, MAV_PARAM_TYPE_REAL32},
-											{"f_kp_arm", {.FLOAT=0.5f}, MAV_PARAM_TYPE_REAL32} };
+struct param_struct t_param[PARAM_ALL] = {	{"flash_params", {.FLOAT=0}, MAV_PARAM_TYPE_REAL32},	//20		//MAV_PARAM_TYPE_INT8},
+											{"f_kp", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},		//10
+											{"f_ki", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},			//0
+											{"pid_pr_p", {.FLOAT=60.0f}, MAV_PARAM_TYPE_REAL32},		//60
+											{"pid_pr_d", {.FLOAT=2000.0f}, MAV_PARAM_TYPE_REAL32},		//2000
+											{"pid_pr_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//0
+											{"mux_pr_chan", {.FLOAT=50.0f}, MAV_PARAM_TYPE_REAL32},	//50
+											{"mux_y_chan", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},	//1
+											{"pid_y_p", {.FLOAT=-60.0f}, MAV_PARAM_TYPE_REAL32},		//-60
+											{"pid_y_d", {.FLOAT=-4000.0f}, MAV_PARAM_TYPE_REAL32},		//-4000
+											{"pid_y_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//0
+											{"f_kp_arm", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32} };	//0
 
 
 void params_save(void){
@@ -43,7 +43,8 @@ void params_restore(void){
 	int d[24];
 	readFLASH(d);
 	int i=0;
-	for (i=0;i<PARAM_ALL;i++) t_param[i].param_value.FLOAT = *(float *)&d[i];
+	if (*(float *)&d[0] != 0) // if ndef params
+		for (i=0;i<PARAM_ALL;i++) t_param[i].param_value.FLOAT = *(float *)&d[i];
 	Printf("acc read %d, %d, %d\n\r", (int)((*(float*)&d[21])*1000.0f), (int)((*(float*)&d[22])*1000.0f), (int)((*(float*)&d[23])*1000.0f));
 	imu_AccOffset_set(*(float*)&d[21], *(float*)&d[22], *(float*)&d[23]);
 }

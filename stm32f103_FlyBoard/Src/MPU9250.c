@@ -17,8 +17,9 @@
 extern SPI_HandleTypeDef hspi1;
 #endif
 #ifdef I2C
-extern I2C_HandleTypeDef hi2c1;
-#define CONFLICT 1
+//#define hi2cN hi2c2
+extern I2C_HandleTypeDef hi2cN;
+
 // if i2c interface not disabled, then read/write uSD card by SPI will be not correct
 #define EN_I2C if(CONFLICT)SET_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN) 		//disable I2c
 #define DIS_I2C if(CONFLICT)CLEAR_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN) 	//disable I2c
@@ -45,7 +46,7 @@ static int MPU_Read_Regs(uint8_t cmd, uint8_t * buf, uint8_t num){
 #endif
 #ifdef I2C
 	EN_I2C;
-	int res = HAL_I2C_Mem_Read(&hi2c1, (DEVID+1), cmd, 1, buf, num, 50);
+	int res = HAL_I2C_Mem_Read(&hi2cN, (DEVID+1), cmd, 1, buf, num, 50);
 	DIS_I2C;
 	if (res != HAL_OK)return -1;
 	return HAL_OK;
@@ -63,7 +64,7 @@ static int MPU_Write_Regs(uint8_t cmd, uint8_t * buf, uint8_t num){
 #ifdef I2C
 
 	EN_I2C;
-	int res = HAL_I2C_Mem_Write(&hi2c1, (DEVID+1), cmd, 1, buf, num, 50);
+	int res = HAL_I2C_Mem_Write(&hi2cN, (DEVID+1), cmd, 1, buf, num, 50);
 	DIS_I2C;
 	if (res != HAL_OK)return -1;
 	return HAL_OK;
@@ -72,7 +73,61 @@ static int MPU_Write_Regs(uint8_t cmd, uint8_t * buf, uint8_t num){
 
 uint8_t mpu_regs[4] = {-1, -1, -1, -1};
 
+int MPU6050_Init(void);
+int MPU9250_Init(void);
+
 int MPU_Init(void)
+{
+#if MPU_CHIP == MPU9250
+	return MPU9250_Init();
+#endif
+#if MPU_CHIP == MPU6050
+	return MPU6050_Init();
+#endif
+}
+
+int MPU6050_Init(void)
+{
+	uint8_t buf[1];
+
+	uint8_t mpu_reg_1A;
+	uint8_t mpu_reg_1B;
+	uint8_t mpu_reg_1C;
+	uint8_t mpu_reg_1D;
+	if (MPU_Read_Regs(WHO_AM_I, buf, 1) != HAL_OK) return -1;
+
+	if (buf[0] != 0x68) {Printf("Iam is 0x%x\n\r", buf[0]); return -2;}
+	//Printf("Iam is 0x%x\n\r", buf[0]);
+
+
+	uint8_t mpu_reg_6B = 0;
+	if (MPU_Write_Regs(0x6B, &mpu_reg_6B, 1) != HAL_OK) return -3;	// clk setup
+
+	mpu_reg_1A = 0x0<<0; // DLPF_CFG : 0 - 256Hz, 1 - 188Hz, 2 - 98Hz, 3 - 42Hz, 4 - 20Hz, 5 - 10Hz, 6 - 5Hz
+
+	mpu_reg_1B = 0 | (0x03<<3);	//GYRO_FS_SEL[1:0] -  (0- +-250dps, 1-500dps, 2-1000, 3-2000dps)
+
+	mpu_reg_1C = 0x03<<3;	//ACCEL_FS_SEL[1:0]	// 2g (00), 4g (01), 8g (10), 16g (11)
+
+
+	mpu_regs[0] = mpu_reg_1A;
+	mpu_regs[1] = mpu_reg_1B;
+	mpu_regs[2] = mpu_reg_1C;
+
+	if (MPU_Write_Regs(0x1A, mpu_regs, 3) != HAL_OK) return -3;
+
+	if (MPU_Read_Regs(0x1A, mpu_regs, 3) != HAL_OK) return -3;
+
+	if (mpu_regs[0] != mpu_reg_1A) return -4;
+	if (mpu_regs[1] != mpu_reg_1B) return -4;
+	if (mpu_regs[2] != mpu_reg_1C) return -4;
+
+
+	Printf("MPU6050_init ok\n\r");
+
+	return 0;
+}
+int MPU9250_Init(void)
 {
 	uint8_t buf[1];
 
@@ -113,7 +168,7 @@ int MPU_Init(void)
 
 	if (MPU_Read_Regs(WHO_AM_I, buf, 1) != HAL_OK) return -1;
 
-	if ((buf[0] != 0x71) && (buf[0] != 0x73)) return -2;
+	if ((buf[0] != 0x71) && (buf[0] != 0x73)) {Printf("I am is 0x%x\n\r",  buf[0]); return -2;}
 
 
 	if (MPU_Write_Regs(0x1A, mpu_regs, 4) != HAL_OK) return -3;

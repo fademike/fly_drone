@@ -23,7 +23,7 @@
 #endif
 
 #ifdef SI4463
-#include "Si4463.h"b
+#include "Si4463.h"
 #include "radio_config_Si4463.h"
 
 #define PACKET_LEN 64
@@ -314,7 +314,9 @@ void ModemControl_Work(void)
 		delay_synchro = SYNCHRO_TIME;    //else delay_to_wait_answer = 10;	//delay_to_wait_answer = 10;  //50;
 
 		NeedAnswer=0;	//FIXME
+#ifdef nRF24
 		RX_Mode();
+#endif
 	}
 
 #if SYNCHRO_MODE
@@ -331,7 +333,9 @@ void ModemControl_Work(void)
 
 		delay_to_wait_answer = delay_measure_tx+SYNCHRO_TWAIT;  //delay_to_wait_answer = delay_measure_tx*4;  //50;
 
+#ifdef nRF24
 		RX_Mode();
+#endif
 
 	}
 #endif

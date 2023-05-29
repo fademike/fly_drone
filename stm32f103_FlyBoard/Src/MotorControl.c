@@ -96,8 +96,11 @@ void MotorControl_loop(void){
 
 	unsigned int motor1, motor2, motor3, motor4;
 
+#define MOTOR_LIMIT 1000
 
-	float setMotor = Throll_Chan*2000.0f;//((SETmainMotorValue*1000)/0xFF);
+	// TODO 0.5 for debug only for tests
+	float setMotor = Throll_Chan*0.5*(float)MOTOR_LIMIT;//((SETmainMotorValue*1000)/0xFF);
+	if (Throll_Chan <= 0) {mPID[PITCH].Reset = 1;mPID[ROLL].Reset = 1;mPID[YAW].Reset = 1;}
 
 	//if (MOTOR_TYPE == MOTOR_BRUSHLESS) mux = ((float)SET_StabKoeffCh2)/200.0;
 
@@ -108,7 +111,6 @@ void MotorControl_loop(void){
 		motor3 = 0 + setMotor - (force[PITCH]*1.0f) - (force[ROLL]*1.0f) - (force[YAW]*1.0f);// +trim_pitch+trim_roll-trim_yaw;
 		motor4 = 0 + setMotor + (force[PITCH]*1.0f) - (force[ROLL]*1.0f) + (force[YAW]*1.0f);// -trim_pitch+trim_roll+trim_yaw;
 
-#define MOTOR_LIMIT 1000
 
 		if (motor1>MOTOR_LIMIT) {motor1 = MOTOR_LIMIT;}
 		if (motor2>MOTOR_LIMIT) {motor2 = MOTOR_LIMIT;}
@@ -124,6 +126,10 @@ void MotorControl_loop(void){
 		  TIM3->CCR3 = 1000;
 		  TIM3->CCR4 = 1000;
 		  status = MOTOR_STATUS_READY;
+
+		  mPID[PITCH].Reset = 1;	// reset i parameter when no running
+		  mPID[ROLL].Reset = 1;	// reset i parameter when no running
+		  mPID[YAW].Reset = 1;	// reset i parameter when no running
 		}
 		else {
 		  TIM3->CCR1 = 1000+motor1;//(motor1/MOTOR_DIV);	//10000;	//main motor			//J13
@@ -132,12 +138,12 @@ void MotorControl_loop(void){
 		  TIM3->CCR4 = 1000+motor4;//(motor4/MOTOR_DIV);	//12000;	//servo1				//J19
 		  status = MOTOR_STATUS_LAUNCHED;
 		}
-//		  static int ind = 0;
-//		  if (++ind>100){ind=0;
-//		  	  Printf("m %d %d %d %d\n\r", motor1, motor2, motor3, motor4);
-//		  	  //Printf("f %d %d %d\n\r", (int)(force[PITCH]*1.0f), (int)(force[ROLL]*1.0f),(int)(force[YAW]*1.0f));
-//		  	  //Printf("f %d %d\n\r",  (int)(yaw*1.0f),(int)(force[YAW]*1.0f));
-//		  }
+		  static int ind = 0;
+		  if (++ind>10){ind=0;
+		  	  Printf("%d, %d, %d, %d\n\r", motor1/10, motor2/10, motor3/10, motor4/10);
+		  	  //Printf("f %d %d %d\n\r", (int)(force[PITCH]*1.0f), (int)(force[ROLL]*1.0f),(int)(force[YAW]*1.0f));
+		  	  //Printf("f %d %d\n\r",  (int)(yaw*1.0f),(int)(force[YAW]*1.0f));
+		  }
 
 #endif
 
@@ -207,6 +213,10 @@ void MotorControl_init(void){
 #endif
 
 	  UpdateFromParam();
+
+	  mPID[PITCH].Reset = 1;	// reset i parameter when no running
+	  mPID[ROLL].Reset = 1;	// reset i parameter when no running
+	  mPID[YAW].Reset = 1;	// reset i parameter when no running
 
 	  status = MOTOR_STATUS_OK;
 }

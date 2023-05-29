@@ -95,7 +95,7 @@ void imu_loop(void){
 	float ki = params_GetMemValue(PARAM_FL_KI);//params_Get_f_ki();
 	float q[4];	//quat
 
-
+//Printf("raw %d, %d, %d\n\r", EstA.x, EstA.y, EstA.z);
 
 	if (l_time_us  == 0 ) {l_time_us = c_time_us; return;} //first cycle. when haven't l_time.
 	l_time_us = c_time_us;
@@ -110,9 +110,9 @@ void imu_loop(void){
 	imu_autoCalibrateByNoize(MotorControl_getState() == MOTOR_STATUS_LAUNCHED);	// if drone is relax..
 	//statusCalibrateGyro=0;
 
-//	acc_offs.x=0;
-//	acc_offs.y=0;
-//	acc_offs.z=0;
+	acc_offs.x=0;
+	acc_offs.y=0;
+	acc_offs.z=0;
 
 	acc.x = ((float)EstA.x)*1.0f*lsb2g_acc + acc_offs.x;//*16.0f/32767.0f;//*lsb2g_acc;
 	acc.y = ((float)EstA.y)*1.0f*lsb2g_acc + acc_offs.y;//*16.0f/32767.0f;//*lsb2g_acc;
@@ -148,7 +148,7 @@ void imu_loop(void){
 	//if (fabs(sqrt(acc.x*acc.x+acc.y*acc.y+acc.z*acc.z)-1.0f)>0.2){
 		HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_SET);
 		//recoveryTime = 10;
-		kp=0;
+		//kp=0;
 	}
 	else {
 		HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_RESET);

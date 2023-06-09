@@ -86,13 +86,19 @@ void SYS_myTick(void);
 
 void TimerIRQ_Handler (void);
 
+void test_set(int set);
+
 #include "MPU9250.h"
 #define MPU6050 0
 #define MPU9250 1
-#define MPU_CHIP MPU9250
-#define hi2cN hi2c1	// num i2c	1 with conflict. 2 without conflict
+#define MPU_CHIP MPU6050	//FIX HERE!!!
+//#define hi2cN hi2c1	// num i2c	1 with conflict. 2 without conflict
 #define CONFLICT 1 // conflict between i2c and spi
 
+#define msleep HAL_Delay
+#define GetTime_ms system_getTime_ms
+
+#define STM32   //LINUX // STM32
 #define SI4463//nRF24	//SI4463
 
 #include <stdint.h>

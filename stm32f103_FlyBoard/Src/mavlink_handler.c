@@ -32,7 +32,9 @@ void mavlink_send_msg(mavlink_message_t * msg){
 	int len = mavlink_msg_to_send_buffer(buf, msg);
 
 	if (ModemControl_getStatus < 0) return;
-	for (i=0; i<len;i++) ModemControl_SendSymbol(buf[i]);
+//	if (len<64) ModemControl_SendPacket(buf, len);
+//	else
+		for (i=0; i<len;i++) ModemControl_SendSymbol(buf[i]);
 	//Printf("send mav\n\r");
 }
 

@@ -10,6 +10,8 @@
 #include "main.h"
 #include "system.h"
 
+#include "ModemControl.h"
+
 extern SPI_HandleTypeDef hspi1;
 
 //
@@ -89,20 +91,20 @@ unsigned char SPI_Read_Reg(unsigned char reg)
 	return(data);
 }
 
-void CRC_PacketCalculate(unsigned char * buff){
-	unsigned char mCRC = 87;
-	int x=0;
-	for (x=0;x<30;x++){mCRC += buff[x]*3;}
-	buff[30] = mCRC;
-}
-
-int CRC_PacketCheck(unsigned char * buff){
-	unsigned char mCRC = 87;
-	int x=0;
-	for (x=0;x<30;x++){mCRC += buff[x]*3;}
-	//Printf("CRC 0x%x, 0x%x ",buff[30], mCRC);
-	return  (buff[30] == mCRC);
-}
+//void CRC_PacketCalculate(unsigned char * buff){
+//	unsigned char mCRC = 87;
+//	int x=0;
+//	for (x=0;x<30;x++){mCRC += buff[x]*3;}
+//	buff[30] = mCRC;
+//}
+//
+//int CRC_PacketCheck(unsigned char * buff){
+//	unsigned char mCRC = 87;
+//	int x=0;
+//	for (x=0;x<30;x++){mCRC += buff[x]*3;}
+//	//Printf("CRC 0x%x, 0x%x ",buff[30], mCRC);
+//	return  (buff[30] == mCRC);
+//}
 
 
 void TX_Mode(unsigned char * tx_buf)

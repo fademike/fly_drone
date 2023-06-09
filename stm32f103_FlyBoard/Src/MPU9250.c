@@ -17,7 +17,7 @@
 extern SPI_HandleTypeDef hspi1;
 #endif
 #ifdef I2C
-//#define hi2cN hi2c2
+#define hi2cN hi2c2
 extern I2C_HandleTypeDef hi2cN;
 
 // if i2c interface not disabled, then read/write uSD card by SPI will be not correct

@@ -32,7 +32,7 @@
 //#include "Kalman.h"
 #include "MPU9250.h"
 
-#include "Si4463.h"
+#include "si4463.h"
 #include "radio_config_Si4463.h"
 
 //#include "uSD.h"
@@ -174,6 +174,17 @@ static void MX_I2C2_Init(void);
 #define TPS2_1 HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_SET)
 #define TPS2_0 HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_RESET)
 
+void test_set(int set){
+	if (set !=0) HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_SET);
+		else HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET);
+	if (set !=0) HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_SET);
+		else HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_RESET);
+	if (set !=0) HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_SET);
+		else HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_RESET);
+	if (set !=0) HAL_GPIO_WritePin(BTN1_GPIO_Port, BTN1_Pin, GPIO_PIN_SET);
+		else HAL_GPIO_WritePin(BTN1_GPIO_Port, BTN1_Pin, GPIO_PIN_RESET);
+
+}
 
 void TimerIRQ_Handler (void){
 //	sendMSG_after(100, "en:%d, st:%d\n\r", ThreadFly[thread_MPU_ag].enabled, ThreadFly[thread_MPU_ag].status);																									//TIM4!!!!!!!!!!!!1
@@ -282,7 +293,9 @@ int main(void)
   MotorControl_init();
 
   imu_init();
-  ModemControl_init();
+  int MC_init = ModemControl_init();
+
+  if (MC_init < 0) Printf("ModemControl_init false\n\r");
 
   HAL_IWDG_Refresh(&hiwdg);
 
@@ -294,10 +307,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
 	  HAL_IWDG_Refresh(&hiwdg);
 
-	  //Thread_Cycle();
 	  int thread = Thread_Cycle();
 
 	  switch (thread){
@@ -307,11 +318,18 @@ int main(void)
 	  			//HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_RESET);
 		  	  	break;
 	  	  case(thread_test):
-				Printf("test %d, %d, %d\n\r", (int)imu_getPitch(), (int)imu_getRoll(), (int)imu_getYaw());
+				//Printf("test %d, %d, %d\n\r", (int)imu_getPitch(), (int)imu_getRoll(), (int)imu_getYaw());
 				//Printf("st %d, %d, %d\n\r", (int)imu_getStatus(), (int)ModemControl_getStatus(), (int)imu_getPitch());
 	  			break;
 	  	  case(thread_ModemControl):
-				ModemControl_Work();
+				if (ModemControl_Work() == 1){	// if rx data pack
+					char buff_pack[64];
+					int rx_len = ModemControl_GetPacket(buff_pack);
+					if (rx_len > 0) {
+						int u=0;
+						for (u=0;u<rx_len;u++)mavlink_receive(buff_pack[u]);
+					}
+				}
 	  			break;
 	  	  case(thread_MAV_send_attitude):
 				mavlink_send_attitude();

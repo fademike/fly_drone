@@ -76,8 +76,8 @@ void RX_Mode(void);
 int nRF24_init(void);
 
 
-void CRC_PacketCalculate(unsigned char * buff);
-int CRC_PacketCheck(unsigned char * buff);
+//void CRC_PacketCalculate(unsigned char * buff);
+//int CRC_PacketCheck(unsigned char * buff);
 
 
 #endif /* INC_NRF24_H_ */

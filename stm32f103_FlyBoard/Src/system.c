@@ -65,6 +65,8 @@ int Thread_Cycle(void)
 	int priority=10;
 	static char priority_found = 0;
 	static char priorityVar[11] = {0,};	// stories priority options
+	static char needComplete_priority = -1;
+	static char needComplete_thread = -1;
 
 	//Look at all the priorities
 	if (priority_found == 0){
@@ -84,11 +86,15 @@ int Thread_Cycle(void)
 
 	uint32_t c_time = system_getTime_ms();
 	//Look at all exist the priorities
-	for (priority=10;priority>0; priority--){
+//	if (needComplete_priority > 0)priority = needComplete_priority;
+//	else
+		priority=10;
+	for (;priority>0; priority--){
 		if (priorityVar[priority] != 1) continue;	// priority does not exist
 		int cnt = 0;
+//		if (needComplete_thread >= 0) cnt = needComplete_thread;
 		//int fl_runned = 0;
-		for (cnt=0; cnt<thread_all; cnt++){
+		for (; cnt<thread_all; cnt++){
 			if ((ThreadFly[cnt].priority == priority) && (ThreadFly[cnt].enabled == 1) &&
 						(ThreadFly[cnt].t_startup < c_time) &&
 						((c_time - ThreadFly[cnt].t_previous_run) > ThreadFly[cnt].t_interval) &&
@@ -96,11 +102,16 @@ int Thread_Cycle(void)
 				ThreadFly[cnt].t_previous_run = c_time;
 				//RunThread(&ThreadFly[cnt]);	// Run thread
 				//fl_runned = 1;
+//				needComplete_priority = priority;
+//				needComplete_thread = cnt++;
 				return ThreadFly[cnt].name;
 			}
 		}
 		//if (fl_runned == 0)return;
 	}
+
+	needComplete_priority = -1;
+	needComplete_thread = -1;
 	return -1;
 }
 
@@ -171,7 +182,7 @@ int Battery_getBatPercent(void){
 void Battery_Read(void){
 	//static float f_voltage = 0;
 	const int undervoltage = 3000;
-	const float multiplier = 11.0;	//res divider
+	const float multiplier = 12.2;//11.0;	//res divider
 
 	int adc = Read_ADC_Channel(0);
 	int calc_mV=((adc*3000)/0xFFF) * multiplier;

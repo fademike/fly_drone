@@ -18,7 +18,7 @@ int MPU_Init(void);
 int MPU_check(void);
 int MPU_Get_acc(pos_struct * Est_A);
 int MPU_Get_gyro(pos_struct * Est_G);
-int  MPU_Get_temp(short temp);
+int MPU_Get_temp(short temp);
 
 int MPU_GetData(pos_struct * EstA, pos_struct * EstG, short * t);
 

@@ -110,9 +110,9 @@ void imu_loop(void){
 	imu_autoCalibrateByNoize(MotorControl_getState() == MOTOR_STATUS_LAUNCHED);	// if drone is relax..
 	//statusCalibrateGyro=0;
 
-	acc_offs.x=0;
-	acc_offs.y=0;
-	acc_offs.z=0;
+//	acc_offs.x=0;
+//	acc_offs.y=0;
+//	acc_offs.z=0;
 
 	acc.x = ((float)EstA.x)*1.0f*lsb2g_acc + acc_offs.x;//*16.0f/32767.0f;//*lsb2g_acc;
 	acc.y = ((float)EstA.y)*1.0f*lsb2g_acc + acc_offs.y;//*16.0f/32767.0f;//*lsb2g_acc;
@@ -129,13 +129,13 @@ void imu_loop(void){
 		return;
 	}
 
-	//static int divi = 0;
-	//if (++divi>=50){divi=0;
-	//Printf("%d,%d,%d\n\r", (int)(acc_offs.x*100.0f), (int)(acc_offs.y*100.0f), (int)(acc_offs.z*100.0f));
-	//Printf("%d,%d,%d\n\r", (int)(acc.x*100.0f), (int)(acc.y*100.0f), (int)(acc.z*100.0f));
-	//Printf("%d,%d,%d\n\r", (int)(EstA.x/1.0f), (int)(EstA.y/1.0f), (int)(EstA.z/1.0f));
-	//}
-	//HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_SET);
+//	static int divi = 0;
+//	if (++divi>=50){divi=0;
+//	Printf("%d,%d,%d\n\r", (int)(acc_offs.x*100.0f), (int)(acc_offs.y*100.0f), (int)(acc_offs.z*100.0f));
+//	Printf("%d,%d,%d\n\r", (int)(acc.x*100.0f), (int)(acc.y*100.0f), (int)(acc.z*100.0f));
+//	Printf("%d,%d,%d\n\r", (int)(EstA.x/1.0f), (int)(EstA.y/1.0f), (int)(EstA.z/1.0f));
+//	}
+//	HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_SET);
 
 	//if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) kp *= 10.0f;
 	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) kp = params_GetMemValue(PARAM_FL_KP);

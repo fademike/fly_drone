@@ -1,7 +1,7 @@
 /*
  * si446x_defs.h
  *
- *  Created on: 15 июля 2016 г.
+ *  Created on: 15 пїЅпїЅпїЅпїЅ 2016 пїЅ.
  *      Author: NASA
  */
 

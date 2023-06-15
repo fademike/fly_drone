@@ -3,7 +3,7 @@
 enum {
 	PARAM_FLASH = 0,
 	PARAM_FL_KP = 1,
-	PARAM_FL_KI = 2,
+	PARAM_ORIENTATION = 2,
 	PARAM_PID_PR_P = 3,
 	PARAM_PID_PR_D = 4,
 	PARAM_PID_PR_I = 5,
@@ -12,7 +12,8 @@ enum {
 	PARAM_PID_Y_P = 8,
 	PARAM_PID_Y_D = 9,
 	PARAM_PID_Y_I = 10,
-	PARAM_FL_KP_ARM = 11
+	PARAM_FL_KP_ARM = 11,
+	PARAM_FL_KI = 12,
 };
 
 union param_value{

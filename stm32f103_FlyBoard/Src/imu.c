@@ -157,7 +157,98 @@ void imu_loop(void){
 	//if (recoveryTime > 0) kp=0;
 
 	MahonyUpdateVariables(dt*1e-6f, kp, ki);
-	MahonyAHRSupdateIMU(gyro.x*M_PI/180.0f,gyro.y*M_PI/180.0f,gyro.z*M_PI/180.0f,acc.x,acc.y,acc.z);
+	//MahonyAHRSupdateIMU(gyro.x*M_PI/180.0f,gyro.y*M_PI/180.0f,gyro.z*M_PI/180.0f,acc.x,acc.y,acc.z);
+
+//	//	MahonyAHRSupdateIMU(gyro.x*M_PI/180.0f,gyro.y*M_PI/180.0f,gyro.z*M_PI/180.0f,acc.x,acc.y,acc.z);
+//
+//	////	float g1 = gyro.x*M_PI/180.0f;	// orientation 0
+//	////	float g2 = gyro.y*M_PI/180.0f;
+//	////	float g3 = gyro.z*M_PI/180.0f;
+//	////	float a1 = acc.x;
+//	////	float a2 = acc.y;
+//	////	float a3 = acc.z;
+//	//	float g1 = gyro.x*M_PI/180.0f;	// rot y 1 orientation 1
+//	//	float g2 = gyro.z*M_PI/180.0f;
+//	//	float g3 = -gyro.y*M_PI/180.0f;
+//	//	float a1 = acc.x;
+//	//	float a2 = acc.z;
+//	//	float a3 = -acc.y;
+//
+//	//	float g1 = gyro.x*M_PI/180.0f;	// rot x 2 orientation 3
+//	//	float g2 = -gyro.y*M_PI/180.0f;
+//	//	float g3 = -gyro.z*M_PI/180.0f;
+//	//	float a1 = acc.x;
+//	//	float a2 = -acc.y;
+//	//	float a3 = -acc.z;
+//		float g1 = gyro.x*M_PI/180.0f;	// rot x 3 orientation 4
+//		float g2 = gyro.y*M_PI/180.0f;
+//		float g3 = -gyro.z*M_PI/180.0f;
+//		float a1 = acc.x;
+//		float a2 = acc.y;
+//		float a3 = -acc.z;
+
+		static float orientation = 0;
+		static int dat_r[3] = {0,1,2};
+		static float dat_r_sig[3] = {1.0,1.0,1.0};
+
+		float param_orientation = params_GetMemValue(PARAM_ORIENTATION);
+
+		if (orientation != param_orientation){
+			orientation = param_orientation;
+			if ((0 <= orientation) && (orientation <= 0xFFFF)){
+			//if (!(param_orientation%1.0)){ //FIXME
+				int i_o = (int)param_orientation;
+				int v1 = i_o&0x3;
+				if (v1>=2) v1 = 2;
+				dat_r[0] = v1;
+				int v2 = (i_o>>2)&0x1;
+				if (v1 == v2) v2++;
+				int v3 = 0;
+				if ((v1 == v3) || (v2 == v3)) v3++;
+				if ((v1 == v3) || (v2 == v3)) v3++;
+
+				if (v1>3) v1 = 0;
+
+				dat_r[0] = v1;
+				dat_r[1] = v2;
+				dat_r[2] = v3;
+
+
+				int sig = (i_o>>3)&0x7;
+				int s=0;
+				for (s=0;s<3;s++) dat_r_sig[s] = 1.0;
+				for (s=0;s<3;s++) if (sig&(0x1<<s)) dat_r_sig[0] = -1.0;
+				Printf("set new %d. %d, %d, %d sig %d %d, %d\n\r", i_o, v1,v2,v3,
+						(int)dat_r_sig[0],(int)dat_r_sig[1],(int)dat_r_sig[2]);
+			}
+		}
+//		float g1 = gyro.x*M_PI/180.0f;	// rot x 3 orientation 4
+//		float g2 = gyro.y*M_PI/180.0f;
+//		float g3 = -gyro.z*M_PI/180.0f;
+//		float a1 = acc.x;
+//		float a2 = acc.y;
+//		float a3 = -acc.z;
+
+		float g[3];
+		float a[3];
+
+		g[dat_r[0]] = gyro.x*M_PI/180.0f;
+		g[dat_r[1]] = gyro.y*M_PI/180.0f;
+		g[dat_r[2]] = gyro.z*M_PI/180.0f;
+
+		a[dat_r[0]] = acc.x;
+		a[dat_r[1]] = acc.y;
+		a[dat_r[2]] = acc.z;
+
+		int s=0;
+		for (s=0;s<3;s++){
+			g[s] *= dat_r_sig[s];
+			a[s] *= dat_r_sig[s];
+		}
+
+		MahonyAHRSupdateIMU(g[0], g[1], g[2], a[0], a[1], a[2]);
+		//MahonyAHRSupdateIMU(gyro.x*M_PI/180.0f,gyro.y*M_PI/180.0f,gyro.z*M_PI/180.0f,acc.x,acc.y,acc.z);
+
 	MahonyGetQuat(q);
 
 	const float px = 2 * (q[1]*q[3] - q[0]*q[2]);

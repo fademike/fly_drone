@@ -271,8 +271,8 @@ int ModemControl_init(void){
 
 
 	ModemControl_status = nRF24_init();
-	if (ModemControl_status < 0) printf("nRF_init false\n\r");
-	else printf("nRF_init OK\n\r");
+	if (ModemControl_status < 0) Printf("nRF_init false\n\r");
+	else Printf("nRF_init OK\n\r");
 #endif
 	return ModemControl_status;
 }

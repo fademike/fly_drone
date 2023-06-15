@@ -52,7 +52,8 @@ void mavlink_send_param(int n){
 			fvalue = p.param_value.FLOAT;
 		else fvalue = (float)p.param_value.INT;
 
-		mavlink_msg_param_value_pack(1, 200, &msg, p.param_id, fvalue, p.param_type, params_getSize(), n);}
+		mavlink_msg_param_value_pack(1, 200, &msg, p.param_id, fvalue, p.param_type, params_getSize(), n);
+	}
 	// if param none - set none param
 	else mavlink_msg_param_value_pack(1, 200, &msg, NULL, 0, MAV_PARAM_TYPE_REAL32, params_getSize(), -1);
 

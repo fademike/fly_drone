@@ -2,7 +2,7 @@
 #include "system.h"
 
 #include "stm32f1xx.h"
-
+#include "main.h"
 
 #define StartUP 2000
 
@@ -26,7 +26,7 @@ struct ThreadFlyStruct {			// This is time settings for some processes
 						{thread_MAV_send_status,	1, 	StartUP, 		1000, 	0,	0, 		1},
 						{thread_ADC,				1, 	0, 				10, 	0,	0, 		1},
 						{thread_ModemControl,		1, 	StartUP, 		1, 		0,	0, 		1},
-						{thread_test,				0, 	StartUP, 		1000, 	0,	0, 		1},
+						{thread_test,				1, 	StartUP, 		500, 	0,	0, 		1},
 };
 
 
@@ -65,8 +65,8 @@ int Thread_Cycle(void)
 	int priority=10;
 	static char priority_found = 0;
 	static char priorityVar[11] = {0,};	// stories priority options
-	static char needComplete_priority = -1;
-	static char needComplete_thread = -1;
+//	static char needComplete_priority = -1;
+//	static char needComplete_thread = -1;
 
 	//Look at all the priorities
 	if (priority_found == 0){
@@ -110,8 +110,8 @@ int Thread_Cycle(void)
 		//if (fl_runned == 0)return;
 	}
 
-	needComplete_priority = -1;
-	needComplete_thread = -1;
+//	needComplete_priority = -1;
+//	needComplete_thread = -1;
 	return -1;
 }
 

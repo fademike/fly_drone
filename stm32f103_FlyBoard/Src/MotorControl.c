@@ -3,6 +3,7 @@
 
 
 #include "stm32f1xx.h"
+#include "main.h"
 #include "MotorControl.h"
 #include "mavlink_handler.h"
 #include "params.h"
@@ -11,6 +12,8 @@
 //extern TIM_HandleTypeDef htim3;
 
 void UpdateFromParam(void);
+
+
 
 
 typedef struct
@@ -24,14 +27,24 @@ typedef struct
 	float MaxLimit;
 } t_pid;
 
-t_pid mPID[4] = {{1,0,0,0,0,0,1000.0f},{1,0,0,0,0,0,1000.0f},{1,0,0,0,0,0,1000.0f},{1,0,0,0,0,0,1000.0f}};
+t_pid mPID[4] = {{1,0,0,0,0,0,1000.0f},
+				{1,0,0,0,0,0,1000.0f},
+				{1,0,0,0,0,0,1000.0f},
+				{1,0,0,0,0,0,1000.0f}};
 
+unsigned int motor_action[4] = {0,0,0,0};
+float motor_min[4] = {0,0,0,0};
+float motor_max[4] = {1000,1000,1000,1000};
+//float motor_mux[4] = {1,1,1,1};
+float motor_offset[4] = {0,0,0,0};
+unsigned short motor_init[4] = {1000,1000,1000,1000};
 
 float SetPID(volatile t_pid *PID, float input, float position);
 
 static int armed = 0;
 static int status = -1;
 
+unsigned int motor[4];
 
 void MotorControl_setArm(int a){
 	armed = a;
@@ -41,6 +54,74 @@ int MotorControl_isArmed(void){
 }
 int MotorControl_getState(void){
 	return status;
+}
+int MotorControl_getMotorValue(unsigned int * m){
+	for (int i=0; i<4;i++) m[i] = motor[i];
+	return 0;
+}
+
+
+int SetMotorValues(float motor, float pitch, float roll, float yaw, unsigned int * m){
+	for (int i=0;i<4;i++){
+		float set_motor = 0;
+		if (motor_action[i]&(0x1<<0)) set_motor +=motor;	//THROTTLE
+		if (motor_action[i]&(0x1<<1)) set_motor -=motor;	//THROTTLE
+		if (motor_action[i]&(0x1<<2)) set_motor +=pitch;
+		if (motor_action[i]&(0x1<<3)) set_motor -=pitch;
+
+		if (motor_action[i]&(0x1<<4)) set_motor +=roll;
+		if (motor_action[i]&(0x1<<5)) set_motor -=roll;
+		if (motor_action[i]&(0x1<<6)) set_motor +=yaw;
+		if (motor_action[i]&(0x1<<7)) set_motor -=yaw;
+
+		//set_motor *= motor_mux[i];
+		set_motor += motor_offset[i];
+
+		if (set_motor > motor_max[i]) set_motor = motor_max[i];
+		if (set_motor < motor_min[i]) set_motor = motor_min[i];
+
+		m[i] = (unsigned int)set_motor;
+	}
+	return 0;
+}
+
+int ApplyMotorValues(unsigned int * m, int reset){
+
+	for (int i=0;i<4;i++){
+		char brashed = (motor_action[i]&(0x1<<8)) ? 1 : 0;
+
+		unsigned int offsetMotor = 1000;
+		if (brashed) {offsetMotor = 0; m[i]*=(MOTOR_LIMIT_BRUSHED/MOTOR_LIMIT_BRUSHLESS);}	//zero offset for brashed motor
+
+		unsigned int newValue = 0;
+		if (reset){
+			newValue = offsetMotor + motor_init[i];
+			m[i]=0;
+		}
+		else {
+			float limit = MOTOR_LIMIT_BRUSHLESS;
+			if (brashed) limit = MOTOR_LIMIT_BRUSHED;
+			if (m[i]>limit) {m[i] = limit;}
+			newValue = offsetMotor + m[i];
+		}
+		if (i==0)		TIM3->CCR1 = newValue;
+		else if (i==1)	TIM3->CCR2 = newValue;
+		else if (i==2)	TIM3->CCR3 = newValue;
+		else if (i==3)	TIM3->CCR4 = newValue;
+	}
+
+	if (reset){
+		status = MOTOR_STATUS_READY;
+
+		mPID[THROTTLE].Reset = 1;	// reset i parameter when no running
+		mPID[PITCH].Reset = 1;	// reset i parameter when no running
+		mPID[ROLL].Reset = 1;	// reset i parameter when no running
+		mPID[YAW].Reset = 1;	// reset i parameter when no running
+	}
+	else {
+		status = MOTOR_STATUS_LAUNCHED;
+	}
+	return 0;
 }
 
 void MotorControl_loop(void){
@@ -64,7 +145,9 @@ void MotorControl_loop(void){
 
 	float force[4];
 
-	float mux_pr = params_GetMemValue(PARAM_MUX_PR_CHAN);//1.0f;//((float)SET_StabKoeffCh2)/10.0;	//20;
+	float mux_t = params_GetMemValue(PARAM_MUX_T_CHAN);//1.0f;//((float)SET_StabKoeffCh2)/10.0;	//20;
+	float mux_p = params_GetMemValue(PARAM_MUX_P_CHAN);//1.0f;//((float)SET_StabKoeffCh2)/10.0;	//20;
+	float mux_r = params_GetMemValue(PARAM_MUX_R_CHAN);//1.0f;//((float)SET_StabKoeffCh2)/10.0;	//20;
 	float mux_y = params_GetMemValue(PARAM_MUX_Y_CHAN);//1.0f;//((float)SET_StabKoeffCh2)/10.0;	//20;
 
 	static int ind_update = 0;
@@ -82,166 +165,148 @@ void MotorControl_loop(void){
 		ind_update = 1;
 	}
 
-	float Pitch_Chan_muxed = Pitch_Chan * mux_pr;
-	float Roll_Chan_muxed = Roll_Chan * mux_pr;
+	float Throll_Chan_muxed = Throll_Chan * mux_t;
+	float Pitch_Chan_muxed = Pitch_Chan * mux_p;
+	float Roll_Chan_muxed = Roll_Chan * mux_r;
 	static float Yaw_Chan_muxed = 0;
 #define IMU_FREQ 100.0f
 	Yaw_Chan_muxed +=Yaw_Chan * mux_y/IMU_FREQ;
 	if (Yaw_Chan_muxed > 180)Yaw_Chan_muxed -= 360.0f;
 	if (Yaw_Chan_muxed < -180)Yaw_Chan_muxed += 360.0f;
 
+	force[THROTTLE] = SetPID(&mPID[THROTTLE], 0 + Throll_Chan_muxed, 0);
 	force[PITCH] = SetPID(&mPID[PITCH], pitch + Pitch_Chan_muxed, 0);
 	force[ROLL] = SetPID(&mPID[ROLL], roll + Roll_Chan_muxed, 0);
 	force[YAW] = SetPID(&mPID[YAW], yaw + Yaw_Chan_muxed, 0);
 
-	unsigned int motor1, motor2, motor3, motor4;
-
-#if MOTOR_TYPE == MOTOR_BRUSHLESS
-#define MOTOR_LIMIT 1000
-#elif MOTOR_TYPE == MOTOR_BRUSHED
-#define MOTOR_LIMIT 2000
-#endif
-	// TODO 0.5 for debug only for tests
-	float setMotor = Throll_Chan*1.0f*(float)MOTOR_LIMIT;//((SETmainMotorValue*1000)/0xFF);
-	if (Throll_Chan <= 0) {mPID[PITCH].Reset = 1;mPID[ROLL].Reset = 1;mPID[YAW].Reset = 1;}
+//	float setMotor = Throll_Chan*1.0f*(float)MOTOR_LIMIT;//((SETmainMotorValue*1000)/0xFF);
+//	if (Throll_Chan <= 0) {
+//		mPID[THROTTLE].Reset = 1;
+//		mPID[PITCH].Reset = 1;
+//		mPID[ROLL].Reset = 1;
+//		mPID[YAW].Reset = 1;
+//	}
 
 	//if (MOTOR_TYPE == MOTOR_BRUSHLESS) mux = ((float)SET_StabKoeffCh2)/200.0;
 
 //#if MOTOR_TYPE == MOTOR_BRUSHLESS
 		//for rc36
-		motor1 = 0 + setMotor + (force[PITCH]*1.0f) + (force[ROLL]*1.0f) - (force[YAW]*1.0f);// -trim_pitch-trim_roll-trim_yaw;
-		motor2 = 0 + setMotor - (force[PITCH]*1.0f) + (force[ROLL]*1.0f) + (force[YAW]*1.0f);// +trim_pitch-trim_roll+trim_yaw;		//for "X" 		// for mobicaro new
-		motor3 = 0 + setMotor - (force[PITCH]*1.0f) - (force[ROLL]*1.0f) - (force[YAW]*1.0f);// +trim_pitch+trim_roll-trim_yaw;
-		motor4 = 0 + setMotor + (force[PITCH]*1.0f) - (force[ROLL]*1.0f) + (force[YAW]*1.0f);// -trim_pitch+trim_roll+trim_yaw;
+		motor[0] = 0 + force[THROTTLE] + (force[PITCH]*1.0f) + (force[ROLL]*1.0f) - (force[YAW]*1.0f);// -trim_pitch-trim_roll-trim_yaw;
+		motor[1] = 0 + force[THROTTLE] - (force[PITCH]*1.0f) + (force[ROLL]*1.0f) + (force[YAW]*1.0f);// +trim_pitch-trim_roll+trim_yaw;		//for "X" 		// for mobicaro new
+		motor[2] = 0 + force[THROTTLE] - (force[PITCH]*1.0f) - (force[ROLL]*1.0f) - (force[YAW]*1.0f);// +trim_pitch+trim_roll-trim_yaw;
+		motor[3] = 0 + force[THROTTLE] + (force[PITCH]*1.0f) - (force[ROLL]*1.0f) + (force[YAW]*1.0f);// -trim_pitch+trim_roll+trim_yaw;
 
 
-		if (motor1>MOTOR_LIMIT) {motor1 = MOTOR_LIMIT;}
-		if (motor2>MOTOR_LIMIT) {motor2 = MOTOR_LIMIT;}
-		if (motor3>MOTOR_LIMIT) {motor3 = MOTOR_LIMIT;}
-		if (motor4>MOTOR_LIMIT) {motor4 = MOTOR_LIMIT;}
 
-		int MOTOR_DIV = 1;
-		//if (MOTOR_TYPE == MOTOR_BRUSHED) MOTOR_DIV = 10;
-#if MOTOR_TYPE == MOTOR_BRUSHLESS
-		if (setMotor == 0){
-		  TIM3->CCR1 = 1000;
-		  TIM3->CCR2 = 1000;
-		  TIM3->CCR3 = 1000;
-		  TIM3->CCR4 = 1000;
-		  status = MOTOR_STATUS_READY;
+//		SetMotorValues(setMotor, force[PITCH], force[ROLL], force[YAW], &motor);
+		SetMotorValues(force[THROTTLE], force[PITCH], force[ROLL], force[YAW], motor);
 
-		  mPID[PITCH].Reset = 1;	// reset i parameter when no running
-		  mPID[ROLL].Reset = 1;	// reset i parameter when no running
-		  mPID[YAW].Reset = 1;	// reset i parameter when no running
-		}
-		else {
-		  TIM3->CCR1 = 1000+motor1;//(motor1/MOTOR_DIV);	//10000;	//main motor			//J13
-		  TIM3->CCR2 = 1000+motor2;//(motor2/MOTOR_DIV);	//13000;	//second motor			//J15
-		  TIM3->CCR3 = 1000+motor3;//(motor3/MOTOR_DIV);	//11000;	//servo2				//J17
-		  TIM3->CCR4 = 1000+motor4;//(motor4/MOTOR_DIV);	//12000;	//servo1				//J19
-		  status = MOTOR_STATUS_LAUNCHED;
-		}
-#endif
-#if MOTOR_TYPE == MOTOR_BRUSHED
-		if (setMotor == 0){
-		  TIM3->CCR1 = 0;
-		  TIM3->CCR2 = 0;
-		  TIM3->CCR3 = 0;
-		  TIM3->CCR4 = 0;
-		  status = MOTOR_STATUS_READY;
-
-		  mPID[PITCH].Reset = 1;	// reset i parameter when no running
-		  mPID[ROLL].Reset = 1;	// reset i parameter when no running
-		  mPID[YAW].Reset = 1;	// reset i parameter when no running
-		}
-		else {
-		  TIM3->CCR1 = 0+motor1;//(motor1/MOTOR_DIV);	//10000;	//main motor			//J13
-		  TIM3->CCR2 = 0+motor2;//(motor2/MOTOR_DIV);	//13000;	//second motor			//J15
-		  TIM3->CCR3 = 0+motor3;//(motor3/MOTOR_DIV);	//11000;	//servo2				//J17
-		  TIM3->CCR4 = 0+motor4;//(motor4/MOTOR_DIV);	//12000;	//servo1				//J19
-		  status = MOTOR_STATUS_LAUNCHED;
-		}
-#endif
-
-//		  static int ind = 0;
-//		  if (++ind>50){ind=0;
-//		  	  Printf("%d, %d, %d, %d\n\r", motor1/10, motor2/10, motor3/10, motor4/10);
-//		  	  //Printf("f %d %d %d\n\r", (int)(force[PITCH]*1.0f), (int)(force[ROLL]*1.0f),(int)(force[YAW]*1.0f));
-//		  	  //Printf("f %d %d\n\r",  (int)(yaw*1.0f),(int)(force[YAW]*1.0f));
-//		  }
-
-//#endif
-
-//#if MOTOR_TYPE == MOTOR_BRUSHED
-//		//for rc36
-//		motor1 = 0 + setMotor - (force[PITCH]*mux) - (force[ROLL]*mux) - (force[YAW]*mux);// -trim_pitch-trim_roll-trim_yaw;		//for "X" 		// for mobicaro new
-//		motor3 = 0 + setMotor + (force[PITCH]*mux) + (force[ROLL]*mux) - (force[YAW]*mux);// +trim_pitch+trim_roll-trim_yaw;
-//		motor4 = 0 + setMotor - (force[PITCH]*mux) + (force[ROLL]*mux) + (force[YAW]*mux);// -trim_pitch+trim_roll+trim_yaw;
-//		motor2 = 0 + setMotor + (force[PITCH]*mux) - (force[ROLL]*mux) + (force[YAW]*mux);// +trim_pitch-trim_roll+trim_yaw;
-//
-//#define MOTOR_LIMIT 2000
-//
-//		if (motor1>MOTOR_LIMIT) {motor1 = MOTOR_LIMIT;}
-//		if (motor2>MOTOR_LIMIT) {motor2 = MOTOR_LIMIT;}
-//		if (motor3>MOTOR_LIMIT) {motor3 = MOTOR_LIMIT;}
-//		if (motor4>MOTOR_LIMIT) {motor4 = MOTOR_LIMIT;}
-//
-//		int MOTOR_DIV = 1;
-//		//if (MOTOR_TYPE == MOTOR_BRUSHED) MOTOR_DIV = 10;
-//
-//		  TIM3->CCR1 = motor1;//(motor1/MOTOR_DIV);	//10000;	//main motor			//J13
-//		  TIM3->CCR2 = motor2;//(motor2/MOTOR_DIV);	//13000;	//second motor			//J15
-//		  TIM3->CCR3 = motor3;//(motor3/MOTOR_DIV);	//11000;	//servo2				//J17
-//		  TIM3->CCR4 = motor4;//(motor4/MOTOR_DIV);	//12000;	//servo1				//J19
-//
-//		  static int ind = 0;
-//		  if (++ind>100){ind=0;
-//		  	  Printf("m %d %d %d %d\n\r", motor1, motor2, motor3, motor4);
-//		  }
-//#endif
-
+		if (Throll_Chan == 0) ApplyMotorValues(motor, 1);
+		else ApplyMotorValues(motor, 0);
 }
 
 
 void UpdateFromParam(void){
-	mPID[PITCH].P = params_GetMemValue(PARAM_PID_PR_P);
-	mPID[ROLL].P = params_GetMemValue(PARAM_PID_PR_P);
+	mPID[THROTTLE].P = params_GetMemValue(PARAM_PID_T_P);
+	mPID[THROTTLE].I = params_GetMemValue(PARAM_PID_T_I);
+	mPID[THROTTLE].D = params_GetMemValue(PARAM_PID_T_D);
+
+	mPID[PITCH].P = params_GetMemValue(PARAM_PID_P_P);
+	mPID[PITCH].I = params_GetMemValue(PARAM_PID_P_I);
+	mPID[PITCH].D = params_GetMemValue(PARAM_PID_P_D);
+
+	mPID[ROLL].P = params_GetMemValue(PARAM_PID_R_P);
+	mPID[ROLL].I = params_GetMemValue(PARAM_PID_R_I);
+	mPID[ROLL].D = params_GetMemValue(PARAM_PID_R_D);
+
 	mPID[YAW].P = params_GetMemValue(PARAM_PID_Y_P);
+	mPID[YAW].I = params_GetMemValue(PARAM_PID_Y_I);
+	mPID[YAW].D = params_GetMemValue(PARAM_PID_Y_D);
 
-	mPID[PITCH].I = params_GetMemValue(PARAM_PID_PR_I);
-	mPID[ROLL].I = params_GetMemValue(PARAM_PID_PR_I);
-	mPID[YAW].I = 0;//params_GetMemValue(PARAM_PID_Y_I);
+	int i=0;
+	for (i=0;i<4;i++){
+		float get_data_action = 0;
+		float get_data_min = 0;
+		float get_data_max = 0;
+//		float get_data_mux = 0;
+		float get_data_init = 0;
+		float get_data_offset = 0;
+		if (i==0) {
+			get_data_action = params_GetMemValue(PARAM_M1_ACTION);
+			get_data_min = params_GetMemValue(PARAM_M1_MIN);
+			get_data_max = params_GetMemValue(PARAM_M1_MAX);
+//			get_data_mux = params_GetMemValue(PARAM_M1_MUX);
+			get_data_init = params_GetMemValue(PARAM_M1_INIT);
+			get_data_offset = params_GetMemValue(PARAM_M1_OFFSET);
+		}
+		else if (i==1) {
+			get_data_action = params_GetMemValue(PARAM_M2_ACTION);
+			get_data_min = params_GetMemValue(PARAM_M2_MIN);
+			get_data_max = params_GetMemValue(PARAM_M2_MAX);
+//			get_data_mux = params_GetMemValue(PARAM_M2_MUX);
+			get_data_init = params_GetMemValue(PARAM_M2_INIT);
+			get_data_offset = params_GetMemValue(PARAM_M2_OFFSET);
+		}
+		else if (i==2) {
+			get_data_action = params_GetMemValue(PARAM_M3_ACTION);
+			get_data_min = params_GetMemValue(PARAM_M3_MIN);
+			get_data_max = params_GetMemValue(PARAM_M3_MAX);
+//			get_data_mux = params_GetMemValue(PARAM_M3_MUX);
+			get_data_init = params_GetMemValue(PARAM_M3_INIT);
+			get_data_offset = params_GetMemValue(PARAM_M3_OFFSET);
+		}
+		else if (i==3) {
+			get_data_action = params_GetMemValue(PARAM_M4_ACTION);
+			get_data_min = params_GetMemValue(PARAM_M4_MIN);
+			get_data_max = params_GetMemValue(PARAM_M4_MAX);
+//			get_data_mux = params_GetMemValue(PARAM_M4_MUX);
+			get_data_init = params_GetMemValue(PARAM_M4_INIT);
+			get_data_offset = params_GetMemValue(PARAM_M4_OFFSET);
+		}
+		if ((0 <= get_data_action) || (get_data_action<=1023)) {
+			motor_action[i] = (unsigned short)get_data_action;
+		}
 
-	mPID[PITCH].D = params_GetMemValue(PARAM_PID_PR_D);
-	mPID[ROLL].D = params_GetMemValue(PARAM_PID_PR_D);
-	mPID[YAW].D = 0;//params_GetMemValue(PARAM_PID_Y_D);
+		motor_min[i] = get_data_min;
+		motor_max[i] = get_data_max;
+//		motor_mux[i] = get_data_mux;
+		motor_offset[i] = get_data_offset;
+
+		if ((1000 <= get_data_init) || (get_data_init<=2000)) {
+			motor_init[i] = (unsigned short) get_data_init;
+		}
+	}
 
 
 }
 
 void MotorControl_init(void){
-#if MOTOR_BRUSHED
-		  TIM3->CCR1 = 0;	//main motor
-		  TIM3->CCR3 = 0;	//servo2
-		  TIM3->CCR4 = 0;	//servo1
-		  TIM3->CCR2 = 0;	//second motor
-		  TIM2->CCR2 = 0;	//motor3
-		  TIM2->CCR4 = 0;	//motor4
-#else
-		  TIM3->CCR1 = 1000;	//main motor
-		  TIM3->CCR3 = 1000;	//servo2
-		  TIM3->CCR4 = 1000;	//servo1
-		  TIM3->CCR2 = 1000;	//second motor
 
-		  TIM2->CCR2 = 1000;	//motor3
-		  TIM2->CCR4 = 1000;	//motor4
-#endif
+	  UpdateFromParam();	//update local pid
 
-	  UpdateFromParam();
+	  ApplyMotorValues(motor, 1);
 
-	  mPID[PITCH].Reset = 1;	// reset i parameter when no running
-	  mPID[ROLL].Reset = 1;	// reset i parameter when no running
-	  mPID[YAW].Reset = 1;	// reset i parameter when no running
+//#if MOTOR_TYPE == MOTOR_BRUSHED
+//		  TIM3->CCR1 = 0;	//main motor
+//		  TIM3->CCR3 = 0;	//servo2
+//		  TIM3->CCR4 = 0;	//servo1
+//		  TIM3->CCR2 = 0;	//second motor
+//		  TIM2->CCR2 = 0;	//motor3
+//		  TIM2->CCR4 = 0;	//motor4
+//#else
+//		  TIM3->CCR1 = 1000+motor_init[0];//1000;	//main motor
+//		  TIM3->CCR2 = 1000+motor_init[1];//1000;	//second motor
+//		  TIM3->CCR3 = 1000+motor_init[2];//1000;	//servo2
+//		  TIM3->CCR4 = 1000+motor_init[3];//1000;	//servo1
+//
+//		  TIM2->CCR2 = 1000;	//motor3
+//		  TIM2->CCR4 = 1000;	//motor4
+//#endif
+//
+//
+//	  mPID[PITCH].Reset = 1;	// reset i parameter when no running
+//	  mPID[ROLL].Reset = 1;	// reset i parameter when no running
+//	  mPID[YAW].Reset = 1;	// reset i parameter when no running
 
 	  status = MOTOR_STATUS_OK;
 }

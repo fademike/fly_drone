@@ -29,14 +29,9 @@
 
 #include <math.h>		// for abs and other
 
-//#include "Kalman.h"
-#include "MPU9250.h"
-
-#include "si4463.h"
 #include "radio_config_Si4463.h"
 
 //#include "uSD.h"
-#include "fast_atan.h"
 
 #include "debug.h"
 
@@ -44,55 +39,13 @@
 #include "system.h"
 #include "mavlink_handler.h"
 
-//volatile int silence_cnt=0;
+//#include "fast_atan.h"
+//#define atan2 atan2LUT
 
-#include "fast_atan.h"
-#define atan2 atan2LUT
-
-//#include "filter.h"
-
-//#define IMU
-
-//#ifdef IMU
 #include "imu.h"
-
-//
-//volatile uint32_t imu_timer = 0;
-//
-//
-//#define CONV_TO_RAD (M_PI/180.0)
-//#define CONV_TO_DEG (180.0/M_PI)
-//
-//struct myAngel {
-//    double x;
-//    double y;
-//    double z;
-//};
-//
-//#endif
-
-
 
 #include "ModemControl.h"
 #include "MotorControl.h"
-#include "nRF24.h"
-
-
-#if MOTOR_TYPE == MOTOR_BRUSHLESS
-
-#define TIM_PERIOD 10000//4000	//20000
-#define TIM_PRESCALER 63
-
-#endif
-
-#if MOTOR_TYPE == MOTOR_BRUSHED
-
-#define TIM_PERIOD 2000
-#define TIM_PRESCALER 0
-
-
-#endif
-
 
 /* USER CODE END Includes */
 
@@ -135,9 +88,6 @@ DMA_HandleTypeDef hdma_usart1_tx;
 
 
 
-
-
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -171,18 +121,12 @@ static void MX_I2C2_Init(void);
 
 #define TPS1 HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_SET)
 #define TPS0 HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET)
-#define TPS2_1 HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_SET)
-#define TPS2_0 HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_RESET)
+//#define TPS2_1 HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_SET)
+//#define TPS2_0 HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_RESET)
 
 void test_set(int set){
 	if (set !=0) HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_SET);
 		else HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET);
-	if (set !=0) HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_SET);
-		else HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_RESET);
-	if (set !=0) HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_SET);
-		else HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_RESET);
-	if (set !=0) HAL_GPIO_WritePin(BTN1_GPIO_Port, BTN1_Pin, GPIO_PIN_SET);
-		else HAL_GPIO_WritePin(BTN1_GPIO_Port, BTN1_Pin, GPIO_PIN_RESET);
 
 }
 
@@ -194,7 +138,6 @@ void SYS_myTick(void)	// IRQ 1 ms
 {
 	//reset timer for calculate us
 	if (htim1.Instance != 0)__HAL_TIM_SET_COUNTER(&htim1, 0);
-
 }
 
 #include <stdarg.h>
@@ -210,8 +153,6 @@ void Printf(const char *fmt, ...)
 
 	HAL_UART_Transmit(&huart1, (unsigned char *)buf, strlen(buf), 500);
 }
-
-
 
 /* USER CODE END 0 */
 
@@ -311,6 +252,8 @@ int main(void)
 
 	  int thread = Thread_Cycle();
 
+//	  unsigned int mot[4];	//for test delete after
+
 	  switch (thread){
 	  	  case(thread_IMU_loop):
 	  		  	//HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_SET);
@@ -320,11 +263,15 @@ int main(void)
 	  	  case(thread_test):
 				//Printf("test %d, %d, %d\n\r", (int)imu_getPitch(), (int)imu_getRoll(), (int)imu_getYaw());
 				//Printf("st %d, %d, %d\n\r", (int)imu_getStatus(), (int)ModemControl_getStatus(), (int)imu_getPitch());
+
+				//MotorControl_getMotorValue(mot);
+				//Printf("motor %d, %d, %d, %d\n\r", mot[0],mot[1],mot[2],mot[3]);
+				HAL_GPIO_TogglePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin);
 	  			break;
 	  	  case(thread_ModemControl):
-				if (ModemControl_Work() == 1){	// if rx data pack
-					char buff_pack[64];
-					int rx_len = ModemControl_GetPacket(buff_pack);
+				if (ModemControl_Loop() == 1){	// if rx data pack
+					uint8_t buff_pack[64];
+					int32_t rx_len = ModemControl_GetPacket(buff_pack);
 					if (rx_len > 0) {
 						int u=0;
 						for (u=0;u<rx_len;u++)mavlink_receive(buff_pack[u]);
@@ -706,10 +653,6 @@ static void MX_TIM2_Init(void)
   sConfigOC.Pulse = 1000;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();

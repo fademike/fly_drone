@@ -93,7 +93,7 @@ int MPU6050_Init(void)
 	uint8_t mpu_reg_1A;
 	uint8_t mpu_reg_1B;
 	uint8_t mpu_reg_1C;
-	uint8_t mpu_reg_1D;
+//	uint8_t mpu_reg_1D;
 	if (MPU_Read_Regs(WHO_AM_I, buf, 1) != HAL_OK) return -1;
 
 	if (buf[0] != 0x68) {Printf("Iam is 0x%x\n\r", buf[0]); return -2;}

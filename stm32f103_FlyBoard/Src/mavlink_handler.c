@@ -5,6 +5,7 @@
 #include "params.h"
 #include "imu.h"
 #include "ModemControl.h"
+#include "MotorControl.h"
 #include "system.h"
 
 #define BUFFER_LENGTH 2041 // minimum buffer size that can be used with qnx (I don't know why)
@@ -129,7 +130,7 @@ void mavlink_receive(char rxdata){
 	mavlink_message_t msg;
 
 	float t_param[10];
-	uint16_t t_cmd;
+//	uint16_t t_cmd;
 
 	mavlink_status_t status;
 
@@ -149,12 +150,13 @@ void mavlink_receive(char rxdata){
 				break;
 			case MAVLINK_MSG_ID_PARAM_SET:
 			{
-				mavlink_param_set_t param_set;
+//				mavlink_param_set_t param_set;
 				char this_param_id[16];
 
 				target_system = mavlink_msg_param_set_get_target_system(&msg);
 				target_component = mavlink_msg_param_set_get_target_component(&msg);
-				uint16_t param_id_len = mavlink_msg_param_set_get_param_id(&msg, this_param_id);	// name of rx param
+//				uint16_t param_id_len =
+						mavlink_msg_param_set_get_param_id(&msg, this_param_id);	// name of rx param
 				this_param_id[strlen(this_param_id)-1] = '\0';										// correction name
 				float this_param_value = mavlink_msg_param_set_get_param_value(&msg);
 				uint8_t param_type = 0;
@@ -178,13 +180,14 @@ void mavlink_receive(char rxdata){
 			}
 			case MAVLINK_MSG_ID_PARAM_REQUEST_READ:
 			{
-				mavlink_param_set_t param_set;
+//				mavlink_param_set_t param_set;
 				char this_param_id[16];
 
 
 				target_system = mavlink_msg_param_set_get_target_system(&msg);
 				target_component = mavlink_msg_param_set_get_target_component(&msg);
-				uint16_t param_id_len = mavlink_msg_param_request_read_get_param_id(&msg, this_param_id);	// name of rx param
+//				uint16_t param_id_len =
+						mavlink_msg_param_request_read_get_param_id(&msg, this_param_id);	// name of rx param
 				this_param_id[strlen(this_param_id)-1] = '\0';										// correction name
 				int16_t this_index = mavlink_msg_param_request_read_get_param_index(&msg);
 

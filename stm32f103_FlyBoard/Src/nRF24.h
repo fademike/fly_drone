@@ -1,14 +1,14 @@
 /*
  * nRF24.h
  *
- *  Created on: 12 ��� 2017 �.
- *      Author: NASA
+ *  Created on: 12.04.2017.
+ *      Author: fademike
  */
 
 #ifndef INC_NRF24_H_
 #define INC_NRF24_H_
 
-
+#include <stdint.h>
 
 
 // SPI(nRF24L01) commands
@@ -19,7 +19,7 @@
 #define FLUSH_TX    			0xE1 				// Define flush TX register command
 #define FLUSH_RX    			0xE2 				// Define flush RX register command
 #define REUSE_TX_PL 			0xE3 				// Define reuse TX payload register command
-#define NOP         			0xFF 				// Define No Operation, might be used to read status register
+//#define NOP         			0xFF 				// Define No Operation, might be used to read status register
 //***************************************************//
 // SPI(nRF24L01) registers(addresses)
 #define NRF24_CONFIG      			0x00				// 'Config' register address
@@ -56,9 +56,9 @@
 #define	TX_DS			0x20
 #define	MAX_RT			0x10
 
-#define CE(x) HAL_GPIO_WritePin(SI_SDN_GPIO_Port, SI_SDN_Pin, x)	//HAL_GPIO_WritePin(GPIOB, CE_Pin, x)
-#define CSN(x) HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, x)
-#define IRQ HAL_GPIO_ReadPin(nRF_IRQ_GPIO_Port, nRF_IRQ_Pin)
+#define CE(x) spi_ce(x);//HAL_GPIO_WritePin(SI_SDN_GPIO_Port, SI_SDN_Pin, x)	//HAL_GPIO_WritePin(GPIOB, CE_Pin, x)
+#define CSN(x) spi_cs(x);// HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, x)
+// #define IRQ HAL_GPIO_ReadPin(nRF_IRQ_GPIO_Port, nRF_IRQ_Pin)
 
 
 
@@ -71,13 +71,6 @@ unsigned char SPI_RW_Reg(unsigned char reg, unsigned char value);
 unsigned char SPI_Read_Reg(unsigned char reg);
 void TX_Mode(unsigned char * tx_buf);
 void RX_Mode(void);
-
-
-int nRF24_init(void);
-
-
-//void CRC_PacketCalculate(unsigned char * buff);
-//int CRC_PacketCheck(unsigned char * buff);
 
 
 #endif /* INC_NRF24_H_ */

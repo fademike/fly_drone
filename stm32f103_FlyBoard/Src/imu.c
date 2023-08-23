@@ -8,6 +8,7 @@
 #include "system.h"
 #include "params.h"
 #include "MotorControl.h"
+#include "main.h"
 
 void imu_autoCalibrateByNoize(int reset);
 void imu_accCalibrate(void);
@@ -142,7 +143,7 @@ void imu_loop(void){
 	else kp = params_GetMemValue(PARAM_FL_KP_ARM);
 	//#define sq(x) ((x)*(x))
 	// * sq(1.0f/256);
-	static int recoveryTime = 0;
+	//static int recoveryTime = 0;
 	if (fabs(fabs(acc.x*acc.x+acc.y*acc.y+acc.z*acc.z)-1.0f)>0.2){
 	//if (fabs(sqrt(acc.x*acc.x+acc.y*acc.y+acc.z*acc.z)-1.0f)>0.2){
 	//if (fabs(sqrt(acc.x*acc.x+acc.y*acc.y+acc.z*acc.z)-1.0f)>0.2){
@@ -159,40 +160,15 @@ void imu_loop(void){
 	MahonyUpdateVariables(dt*1e-6f, kp, ki);
 	//MahonyAHRSupdateIMU(gyro.x*M_PI/180.0f,gyro.y*M_PI/180.0f,gyro.z*M_PI/180.0f,acc.x,acc.y,acc.z);
 
-//	//	MahonyAHRSupdateIMU(gyro.x*M_PI/180.0f,gyro.y*M_PI/180.0f,gyro.z*M_PI/180.0f,acc.x,acc.y,acc.z);
-//
-//	////	float g1 = gyro.x*M_PI/180.0f;	// orientation 0
-//	////	float g2 = gyro.y*M_PI/180.0f;
-//	////	float g3 = gyro.z*M_PI/180.0f;
-//	////	float a1 = acc.x;
-//	////	float a2 = acc.y;
-//	////	float a3 = acc.z;
-//	//	float g1 = gyro.x*M_PI/180.0f;	// rot y 1 orientation 1
-//	//	float g2 = gyro.z*M_PI/180.0f;
-//	//	float g3 = -gyro.y*M_PI/180.0f;
-//	//	float a1 = acc.x;
-//	//	float a2 = acc.z;
-//	//	float a3 = -acc.y;
-//
-//	//	float g1 = gyro.x*M_PI/180.0f;	// rot x 2 orientation 3
-//	//	float g2 = -gyro.y*M_PI/180.0f;
-//	//	float g3 = -gyro.z*M_PI/180.0f;
-//	//	float a1 = acc.x;
-//	//	float a2 = -acc.y;
-//	//	float a3 = -acc.z;
-//		float g1 = gyro.x*M_PI/180.0f;	// rot x 3 orientation 4
-//		float g2 = gyro.y*M_PI/180.0f;
-//		float g3 = -gyro.z*M_PI/180.0f;
-//		float a1 = acc.x;
-//		float a2 = acc.y;
-//		float a3 = -acc.z;
-
 		static float orientation = 0;
 		static int dat_r[3] = {0,1,2};
 		static float dat_r_sig[3] = {1.0,1.0,1.0};
+//		static char dat_inverce[3] = {0,0,0};
 
 		float param_orientation = params_GetMemValue(PARAM_ORIENTATION);
 
+		// 0, 24 - norm
+		// 60 - up
 		if (orientation != param_orientation){
 			orientation = param_orientation;
 			if ((0 <= orientation) && (orientation <= 0xFFFF)){
@@ -202,6 +178,7 @@ void imu_loop(void){
 				if (v1>=2) v1 = 2;
 				dat_r[0] = v1;
 				int v2 = (i_o>>2)&0x1;
+				if ((v1 == 0) && (v2 == 1)) v2++;
 				if (v1 == v2) v2++;
 				int v3 = 0;
 				if ((v1 == v3) || (v2 == v3)) v3++;
@@ -215,9 +192,14 @@ void imu_loop(void){
 
 
 				int sig = (i_o>>3)&0x7;
+//				int inverce = (i_o>>6)&0x7;
 				int s=0;
 				for (s=0;s<3;s++) dat_r_sig[s] = 1.0;
-				for (s=0;s<3;s++) if (sig&(0x1<<s)) dat_r_sig[0] = -1.0;
+				for (s=0;s<3;s++) if (sig&(0x1<<s)) dat_r_sig[s] = -1.0;
+
+//				for (s=0;s<3;s++) dat_inverce[s] = 0;
+//				for (s=0;s<3;s++) if (inverce&(0x1<<s)) dat_inverce[s] = 1;
+
 				Printf("set new %d. %d, %d, %d sig %d %d, %d\n\r", i_o, v1,v2,v3,
 						(int)dat_r_sig[0],(int)dat_r_sig[1],(int)dat_r_sig[2]);
 			}
@@ -362,6 +344,11 @@ void imu_accCalibrate(void){
 		AccClbAcc_axis.x = 0;
 		AccClbAcc_axis.y = 0;
 		AccClbAcc_axis.z = 0;
+
+		acc_offs.x = 0;
+		acc_offs.y = 0;
+		acc_offs.z = 0;
+		return;
 	}
 
 	uint32_t timeWait = time-l_time;
@@ -375,10 +362,42 @@ void imu_accCalibrate(void){
 	}
 	else
 	{
-		acc_offs.x -= AccClbAcc_axis.x/(float)GyroClbCnt;
-		acc_offs.y -= AccClbAcc_axis.y/(float)GyroClbCnt;
-		acc_offs.z -= (AccClbAcc_axis.z/(float)GyroClbCnt) - 1.0f;
+		if (GyroClbCnt == 0) {statusCalibrateAcc = 0; return;}
 
+#define ACC_MAX_LIMIT 1.0f
+		float offset_tmp[3];
+		offset_tmp[0] = AccClbAcc_axis.x/(float)GyroClbCnt;
+		offset_tmp[1] = AccClbAcc_axis.y/(float)GyroClbCnt;
+		offset_tmp[2] = AccClbAcc_axis.z/(float)GyroClbCnt;
+
+		float A_abs[3];// = {acc_offs.x, acc_offs.y, acc_offs.z}
+			A_abs[0] = fabs(offset_tmp[0]);
+			A_abs[1] = fabs(offset_tmp[1]);
+			A_abs[2] = fabs(offset_tmp[2]);
+		Printf("average c: %d, %d, %d\n\r", (int)(offset_tmp[0]*1000), (int)(offset_tmp[1]*1000), (int)(offset_tmp[2]*1000));
+
+		if ((A_abs[0]>=A_abs[1]) && (A_abs[0]>=A_abs[2])){
+			if (offset_tmp[0]<0) offset_tmp[0] = offset_tmp[0] + ACC_MAX_LIMIT;
+			else offset_tmp[0] = offset_tmp[0] - ACC_MAX_LIMIT;
+		}
+		else if ((A_abs[1]>=A_abs[0]) && (A_abs[1]>=A_abs[2])){
+			if (offset_tmp[1]<0) offset_tmp[1] = offset_tmp[1] + ACC_MAX_LIMIT;
+			else offset_tmp[1] = offset_tmp[1] - ACC_MAX_LIMIT;
+		}
+		else if ((A_abs[2]>=A_abs[0]) && (A_abs[2]>=A_abs[1])){
+			if (offset_tmp[2]<0) offset_tmp[2] = offset_tmp[2] + ACC_MAX_LIMIT;
+			else offset_tmp[2] = offset_tmp[2] - ACC_MAX_LIMIT;
+		}
+
+//		acc_offs.x -= AccClbAcc_axis.x/(float)GyroClbCnt;
+//		acc_offs.y -= AccClbAcc_axis.y/(float)GyroClbCnt;
+//		acc_offs.z -= (AccClbAcc_axis.z/(float)GyroClbCnt) - 1.0f;
+
+		acc_offs.x -= offset_tmp[0];
+		acc_offs.y -= offset_tmp[1];
+		acc_offs.z -= offset_tmp[2];
+
+		Printf("acc c: %d, %d, %d\n\r", (int)(acc_offs.x*1000), (int)(acc_offs.y*1000), (int)(acc_offs.z*1000));
 		statusCalibrateAcc = 0;
 
 		GyroClbCnt = 0;

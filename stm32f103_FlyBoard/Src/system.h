@@ -1,4 +1,6 @@
-
+#pragma once
+#ifndef __SYSTEM_H__
+#define __SYSTEM_H__
 
 #include <stdint.h>
 
@@ -25,3 +27,4 @@ int Battery_getVoltage(void);
 int Battery_getBatPercent(void);
 void Battery_Read(void);
 
+#endif

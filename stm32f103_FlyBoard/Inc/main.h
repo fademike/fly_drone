@@ -33,6 +33,7 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "spi.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -66,7 +67,7 @@ void Error_Handler(void);
 #define PIN_TEST2_GPIO_Port GPIOC
 #define PIN_TEST3_Pin GPIO_PIN_1
 #define PIN_TEST3_GPIO_Port GPIOD
-#define PIN_TEST_Pin GPIO_PIN_2
+#define PIN_TEST_Pin GPIO_PIN_1
 #define PIN_TEST_GPIO_Port GPIOA
 #define SDCARD_SS_Pin GPIO_PIN_12
 #define SDCARD_SS_GPIO_Port GPIOB
@@ -96,6 +97,7 @@ void test_set(int set);
 #define CONFLICT 1 // conflict between i2c and spi
 
 #define msleep HAL_Delay
+#include "system.h"
 #define GetTime_ms system_getTime_ms
 
 #define STM32   //LINUX // STM32

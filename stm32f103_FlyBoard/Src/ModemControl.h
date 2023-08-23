@@ -1,7 +1,14 @@
+/*
+ * ModemControl.h
+ *
+ *  Created on: 06.04.2020.
+ *      Author: fademike
+ */
 
-//#include "main.h"
+#ifndef __MODEMCONTROL_H__
+#define __MODEMCONTROL_H__
 
-
+#include <stdint.h>
 
 typedef enum  {
 	STATE_IDLE 				= 0,
@@ -9,85 +16,68 @@ typedef enum  {
 	STATE_TX				= 2
 } STATE_TRANSIEVER;
 
-
 typedef enum  {
 	PACKET_NONE 		= 0,
 	PACKET_DATA			= 1,
 	PACKET_ASK			= 2,
 	PACKET_ANSWER		= 3,
-	PACKET_DATA_PACK	= 4,
+	PACKET_DATA_PART	= 4,
 } PACKET_TYPE;
 
-
-// Need to add to msTimer: if(delay_to_wait_answer>0) delay_to_wait_answer--; and other! //FIXME
-// and:
-//	extern volatile int delay_to_wait_answer;
-//	extern volatile int delay_measure_tx;
-//	extern volatile int delay_synchro;
-//	if(delay_to_wait_answer>0) delay_to_wait_answer--;
-//	if(delay_synchro>0) delay_synchro--;	// timer for synchronization modem
-//	delay_measure_tx++;
+struct modem_struct {
+	int32_t (*init)();
+	int32_t (*read)(uint8_t *data, uint8_t length);
+	int32_t (*write)(uint8_t *data, uint8_t length);
+};
 
 
 
-// #define READCMDSTREAM_ARRAY 5	//10	TODO FIXME
+#include "main.h"
+
+#ifdef SI4463
+
+#include "si4463.h"
+#include "radio_config_Si4463.h"
+#define PACKET_LEN 64
+#define PACKET_LEN_CRC 2	      // package Length
+#define PACKET_DATALEN 60
+#define CMD_LIST_SIZE 35       // any num RAM
+#endif
 
 
+#ifdef nRF24
 
-#define PACKET_LEN 64	// length receive buffer of modem
-
-#define SYNCHRO_MODE 1	// 1- synchronization mode; 0- simple mode. More in stm8+si4463 project
-////////////////////////////For SYNCHRO_MODE :
-
-#if SYNCHRO_MODE
-
-
-#define SYNCHRO_TIME 500                                                        // sync time
-#define SYNCHRO_TWAIT 20//6*4
+#include "nRF24.h"
+#define PACKET_LEN 32	      // package Length
+#define PACKET_LEN_CRC 2	      // package Length
+#define PACKET_DATALEN 28   // the size of the data in the package
+#define CMD_LIST_SIZE 10    // number of packages
 
 #endif
 
-//DELETE									//circular buffer for send out by RF
-#define UART_BUF_SIZE 3	//255 TODO FIXME			// buffer lenght
+#define SYNCHRO_MODE 1	// 1- synchronization mode; 0- simple mode. More in stm8+si4463 project
+#define SEND_PACKETBLOCK 0	// if not zero - the maximum number of packets in a block
+// #if SYNCHRO_MODE
 
-//#define BUFFER_TX_RF 2	//64	TODO FIXME
-
-#define MODEM_PINCONTROL 0	// For debug pin output
-
-
-//void ModemControl_init(void);
-
-// void ModemControl_ReadSymbolRfomRF_Callback(char data);
-// void ModemControl_ReadMSGRfomRF_Callback(char * data);
-
-void ModemControl_SendPacket(const char * buff, unsigned int len);
-void ModemControl_SendSymbol(char buff);
-
-int ModemControl_ReadOnly(void);
-// void ModemControl_Work(void);
-
-//
-int ModemControl_Work(void);	// return 1 when rx data
-// void ModemControl_SendPacket(char * buff);
-// void ModemControl_SendSymbol(char data);
-int ModemControl_GetPacket(char * buf);
-int ModemControl_GetByte(char * buf);
-int ModemControl_getStatus(void);
- int ModemControl_init(void);
-//
-
-void CRC_PacketCalculate(unsigned char * buff);
-int CRC_PacketCheck(unsigned char * buff);
-
-// #define SI_SIMPLE_PRINTF
-
-// #ifdef SI_SIMPLE_PRINTF
-// //void Printf(const char *fmt, ...)
-// #else
+#define SYNCHRO_TIME 500    // sync time, ms
+#define SYNCHRO_TWAIT 20	// wait answer, ms
 
 // #endif
-// #ifdef SI_POOR_PRINTF
-// //void Printf_str(char * str);
-// //void Printf_hex(int);
-// #endif
 
+int32_t ModemControl_init(void);
+
+int32_t ModemControl_getStatus(void);
+
+int32_t ModemControl_Loop(void);	// return 1 when rx data
+int32_t ModemControl_ReadOnly(void);
+
+void ModemControl_SendPacket(uint8_t * buff, uint16_t len);
+void ModemControl_SendSymbol(uint8_t buff);
+
+int32_t ModemControl_GetPacket(uint8_t * buf);
+int32_t ModemControl_GetByte(uint8_t * buf);
+//
+
+
+
+#endif

@@ -119,8 +119,8 @@ static void MX_I2C2_Init(void);
 #define DIS_I2C if(CONFLICT)CLEAR_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN) 	//disable I2c
 
 
-#define TPS1 HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_SET)
-#define TPS0 HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET)
+//#define TPS1 HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_SET)
+//#define TPS0 HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET)
 //#define TPS2_1 HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_SET)
 //#define TPS2_0 HAL_GPIO_WritePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin, GPIO_PIN_RESET)
 
@@ -134,12 +134,21 @@ void TimerIRQ_Handler (void){
 //	sendMSG_after(100, "en:%d, st:%d\n\r", ThreadFly[thread_MPU_ag].enabled, ThreadFly[thread_MPU_ag].status);																									//TIM4!!!!!!!!!!!!1
 }
 
+volatile uint32_t tick_ms = 0;
+
+uint32_t Get_tick(void){
+	return tick_ms;
+}
+
 void SYS_myTick(void)	// IRQ 1 ms
-{
+{tick_ms++;
 	//reset timer for calculate us
 	if (htim1.Instance != 0)__HAL_TIM_SET_COUNTER(&htim1, 0);
 }
 
+//void Printf(const char *fmt, ...){
+//	HAL_UART_Transmit(&huart1, (unsigned char *)fmt, strlen(fmt), 500);
+//}
 #include <stdarg.h>
 
 void Printf(const char *fmt, ...)
@@ -152,6 +161,7 @@ void Printf(const char *fmt, ...)
 	va_end(lst);
 
 	HAL_UART_Transmit(&huart1, (unsigned char *)buf, strlen(buf), 500);
+	if (ModemControl_getStatus()>=0) mavlink_send_statustext(buf);
 }
 
 /* USER CODE END 0 */
@@ -236,7 +246,7 @@ int main(void)
   imu_init();
   int MC_init = ModemControl_init();
 
-  if (MC_init < 0) Printf("ModemControl_init false\n\r");
+  if (MC_init < 0) Printf("MC_init false\n\r");
 
   HAL_IWDG_Refresh(&hiwdg);
 
@@ -269,6 +279,7 @@ int main(void)
 				HAL_GPIO_TogglePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin);
 	  			break;
 	  	  case(thread_ModemControl):
+				mavlink_loop();
 				if (ModemControl_Loop() == 1){	// if rx data pack
 					uint8_t buff_pack[64];
 					int32_t rx_len = ModemControl_GetPacket(buff_pack);

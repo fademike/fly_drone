@@ -10,7 +10,7 @@
 #include "MotorControl.h"
 #include "main.h"
 
-void imu_autoCalibrateByNoize(int reset);
+void imu_autoCalibrateByNoize(int stop);
 void imu_accCalibrate(void);
 
 
@@ -54,6 +54,9 @@ int imu_getStatus(void){	// fail, calib, ok
 }
 int imu_GyroCalibrate_getStatus(void){	// fail, calib, ok
 	return statusCalibrateGyro;
+}
+void imu_GyroCalibrate_run(void){	// fail, calib, ok
+	statusCalibrateGyro = -2;
 }
 int imu_AccCalibrate_getStatus(void){	// fail, calib, ok
 	return statusCalibrateAcc;
@@ -263,16 +266,24 @@ void imu_loop(void){
 #define def_update_min(a, b) if (1){if (a.x>b.x) a.x = b.x; if (a.y>b.y) a.y = b.y; if (a.z>b.z) a.z = b.z;}
 #define def_update_max(a, b) if (1){if (a.x<b.x) a.x = b.x; if (a.y<b.y) a.y = b.y; if (a.z<b.z) a.z = b.z;}
 
-void imu_autoCalibrateByNoize(int reset){
+void imu_autoCalibrateByNoize(int stop){
 	static uint32_t l_time = 0;
 	uint32_t time = system_getTime_ms();
 	static struct axis_struct GyroClbAcc_axis = {0,0,0};
 	static struct axis_struct min = {3000,3000,3000}, max = {-3000,-3000,-3000};
 	static struct axis_struct diff_last = {6000,6000,6000};
 	//
-	static int nReset = 0;
+	static int nStop = 0;
 
 	static uint32_t GyroClbCnt = 0;
+
+	if (statusCalibrateGyro < -1) {	// reset calibrate
+		statusCalibrateGyro=-1;
+		diff_last.x = 6000;
+		diff_last.y = 6000;
+		diff_last.z = 6000;
+	}
+
 	uint32_t timeWait = time-l_time;
 	if ((0 <= timeWait) && (timeWait < 1000))//(GyroClbCnt < (1*gyro_freq))//1000)
 	{
@@ -284,12 +295,12 @@ void imu_autoCalibrateByNoize(int reset){
 		GyroClbAcc_axis.y +=gyro.y;
 		GyroClbAcc_axis.z +=gyro.z;
 		GyroClbCnt++;
-		nReset += reset;
+		nStop += stop;
 	}
 	else
 	{
 		struct axis_struct diff_res = {max.x-min.x, max.y-min.y, max.z-min.z};
-		if ((GyroClbCnt >=10) && (nReset == 0) &&
+		if ((GyroClbCnt >=10) && (nStop == 0) &&
 				((diff_res.x<diff_last.x) && (diff_res.y<diff_last.y) && (diff_res.z<diff_last.z))){
 			gyro_offs.x -= GyroClbAcc_axis.x/(float)GyroClbCnt;
 			gyro_offs.y -= GyroClbAcc_axis.y/(float)GyroClbCnt;
@@ -305,7 +316,7 @@ void imu_autoCalibrateByNoize(int reset){
 
 			statusCalibrateGyro = 0;
 		}
-		nReset = 0;
+		nStop = 0;
 
 		GyroClbCnt = 0;
 		GyroClbAcc_axis.x = 0;

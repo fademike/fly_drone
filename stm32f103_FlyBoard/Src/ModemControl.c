@@ -25,7 +25,7 @@ void ModemControl_timeUpdate(void);
 extern struct modem_struct rf_si4463;
 struct modem_struct * rf_modem = &rf_si4463;
 // #endif
-#elif defined (nRf24)
+#elif defined (nRF24)
 // #ifdef nRF24
 extern struct modem_struct rf_nrf24;
 struct modem_struct * rf_modem = &rf_nrf24;
@@ -75,6 +75,16 @@ void rfPack_setData(uint8_t * buff, uint16_t n, uint8_t data){
   buff[2+n] = data;
 }
 
+int32_t ModemControl_SendPacket_GetQueue(void)
+{
+  if (cb_isFull(&toTx)) return -1;
+  else if (cb_isEmpty(&toTx)) return 0;
+  return cb_getCnt(&toTx);
+}
+int32_t ModemControl_SendPacket_SizeQueue(void)
+{
+  return cb_getSize(&toTx);
+}
 // Copies the packet to the buffer for sending
 void ModemControl_SendPacket(uint8_t * buff, uint16_t len)
 {
@@ -173,10 +183,12 @@ void ModemControl_timeUpdate(void){
 }
 
 int32_t ModemControl_init(void){
-  static uint8_t buf_tx[CMD_LIST_SIZE*PACKET_LEN];
-  static uint8_t buf_rx[CMD_LIST_SIZE*PACKET_LEN];
-  cb_init(&toTx, buf_tx, CMD_LIST_SIZE, PACKET_LEN);
-  cb_init(&toRx, buf_rx, CMD_LIST_SIZE, PACKET_LEN);
+  // static uint8_t buf_tx[CMD_LIST_SIZE*PACKET_LEN];
+  // static uint8_t buf_rx[CMD_LIST_SIZE*PACKET_LEN];
+  // cb_init(&toTx, buf_tx, CMD_LIST_SIZE, PACKET_LEN);
+  // cb_init(&toRx, buf_rx, CMD_LIST_SIZE, PACKET_LEN);
+  cb_init(&toTx, CMD_LIST_SIZE, PACKET_LEN);
+  cb_init(&toRx, CMD_LIST_SIZE, PACKET_LEN);
 
   ModemControl_status = rf_modem->init();//RFinit();
   return ModemControl_status;
@@ -220,9 +232,9 @@ void ModemControl_Send(uint8_t * buf){
   ModemControl_timeUpdate();
   delay_measureTx = 0;  // reset timer to caltulate time tx pack
 
-  test_set(1);
+  //test_set(1);
   ModemControl_status = rf_modem->write(buf, PACKET_LEN);   // TX Data
-  test_set(0);
+  //test_set(0);
 
   if (!mode_synchro) return;
 
@@ -264,6 +276,8 @@ int32_t ModemControl_Loop(void)
   }
 
   if (!mode_synchro) return 0;
+
+  if (delay_toWaitAnswer > 0){return 0;}      //The timer between the packets being sent. Otherwise, heap data was not accepted.
 
   if (((NeedAnswer != PACKET_NONE) || (delay_synchro>0))){      //Maintain communication by sync pulses.
 

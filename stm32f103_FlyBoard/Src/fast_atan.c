@@ -1,7 +1,7 @@
 /*
  * fast_atan.c
  *
- *  Created on: 10 июня 2020 г.
+ *  Created on: 10 пїЅпїЅпїЅпїЅ 2020 пїЅ.
  *      Author: NASA
  */
 

@@ -3,6 +3,10 @@
 uint16_t mavlink_getChan(int n);
 uint32_t mavlink_getChanUpdateTimer(void);
 
+void mavlink_send_statustext(char * text);
+
+void mavlink_loop(void);
+
 void mavlink_receive(char rxdata);
 
 

@@ -72,4 +72,5 @@ float params_GetMemValue(int n);
 
 //int readFLASH(int *d);
 //int writeFLASH(int * d);
+void Clear_Bootloader_Key(void);
 

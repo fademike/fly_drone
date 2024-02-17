@@ -11,8 +11,13 @@
 
 #include <mavlink.h>
 
-int readFLASH(int *d);
-int writeFLASH(int * d);
+
+#define FLASH_ADDRESS_MYDATA (0x8000000+0x400*63)
+#define BOOTLOADER_KEY_START_ADDRESS                             (uint32_t)0x08002C00
+//#define FLASH_PAGE_SIZE                                          1024
+
+int readFLASH(uint32_t address, int *d);
+int writeFLASH(uint32_t address, int * d);
 
 #define PARAM_ALL (45)
 #define ADDR_ACC_X (PARAM_ALL+0)
@@ -79,17 +84,17 @@ struct param_struct t_param[PARAM_ALL] = {	{"flash_params", {.FLOAT=0}, MAV_PARA
 
 
 void params_save(void){
-	int d[PARAM_ALL*2];
+	int d[FLASH_PAGE_SIZE/4];
 	int i=0;
 	for (i=0;i<PARAM_ALL;i++) *(float *)&d[i] = t_param[i].param_value.FLOAT;
 	imu_AccOffset_get((float *)&d[ADDR_ACC_X], (float *)&d[ADDR_ACC_Y], (float *)&d[ADDR_ACC_Z]);
 	Printf("acc save %d, %d, %d\n\r", (int)((*(float*)&d[ADDR_ACC_X])*1000.0f), (int)((*(float*)&d[ADDR_ACC_Y])*1000.0f), (int)((*(float*)&d[ADDR_ACC_Z])*1000.0f));
-	writeFLASH(d);
+	writeFLASH(FLASH_ADDRESS_MYDATA, d);
 }
 
 void params_restore(void){
-	int d[PARAM_ALL*2];
-	readFLASH(d);
+	int d[FLASH_PAGE_SIZE/4];
+	readFLASH(FLASH_ADDRESS_MYDATA, d);
 	int i=0;
 	if (*(float *)&d[0] == 0) {Printf("params default!\n\r"); return;}// if ndef params
 	else
@@ -146,9 +151,8 @@ int params_getIndexById(char * id){
 }
 
 
-#define FLASH_ADDRESS_MYDATA (0x8000000+0x400*63)
 
-int readFLASH(int *d){
+int readFLASH(uint32_t address, int *d){
 
 	int result = HAL_OK;
 
@@ -156,7 +160,7 @@ int readFLASH(int *d){
 	//if (result != HAL_OK) {return result;}
 	Printf("Read HAL_FLASH_Unlock\n\r");
 	int i=0;
-	for (i=0;i<(PARAM_ALL*2);i++) d[i] = *(int *)(FLASH_ADDRESS_MYDATA+ i*4);
+	for (i=0;i<(FLASH_PAGE_SIZE/4);i++) d[i] = *(int *)(address+ i*4);
 	result = HAL_FLASH_Lock();
 	Printf("Read HAL_FLASH_Lock\n\r");
 	if (result != HAL_OK) {return result;}
@@ -164,7 +168,7 @@ int readFLASH(int *d){
 	return result;
 }
 
-int writeFLASH(int * d){
+int writeFLASH(uint32_t address, int * d){
 
 	int result = HAL_OK;
 
@@ -173,7 +177,7 @@ int writeFLASH(int * d){
 
 	FLASH_EraseInitTypeDef pEraseInit;
 	pEraseInit.TypeErase = FLASH_TYPEERASE_PAGES;
-	pEraseInit.PageAddress = FLASH_ADDRESS_MYDATA;
+	pEraseInit.PageAddress = address;
 	pEraseInit.NbPages = 1;
 
 	uint32_t PageError = 0;
@@ -183,8 +187,8 @@ int writeFLASH(int * d){
 
 	int i=0;
 
-	for (i=0;i<(PARAM_ALL*2);i++){
-		result = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, FLASH_ADDRESS_MYDATA+i*4, *(int *)&d[i]);
+	for (i=0;i<(FLASH_PAGE_SIZE/4);i++){
+		result = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, address+i*4, *(int *)&d[i]);
 		if (result != HAL_OK) { return result;}
 	}
 
@@ -194,3 +198,9 @@ int writeFLASH(int * d){
 	return result;
 }
 
+
+void Clear_Bootloader_Key(void){
+	uint32_t buf[FLASH_PAGE_SIZE/4];
+	buf[0] = 0;
+	writeFLASH(BOOTLOADER_KEY_START_ADDRESS, (int *)buf);
+}

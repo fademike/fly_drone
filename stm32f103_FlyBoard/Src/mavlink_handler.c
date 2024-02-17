@@ -33,12 +33,29 @@ void mavlink_send_msg(mavlink_message_t * msg){
 	int len = mavlink_msg_to_send_buffer(buf, msg);
 
 	if (ModemControl_getStatus < 0) return;
-//	if (len<64) ModemControl_SendPacket(buf, len);
-//	else
+	if (len<PACKET_DATALEN) ModemControl_SendPacket(buf, len);
+	else
 		for (i=0; i<len;i++) ModemControl_SendSymbol(buf[i]);
-	//Printf("send mav\n\r");
+	//Printf("send mav %d\n\r", len);
 }
 
+
+void mavlink_send_statustext(char * text){
+	mavlink_message_t msg;
+
+	const uint8_t severity = 0;
+	//const uint16_t id = 0;
+	const uint8_t chunk_seq = 0;
+
+	char DAT[50];
+	//memset(DAT, 50, 0);
+	int len = strlen(text);
+	if (len>50)len = 50;
+	memcpy(DAT, text, strlen(text));
+	mavlink_msg_statustext_pack(1, 200, &msg, severity, DAT, strlen(text), chunk_seq);
+
+	mavlink_send_msg(&msg);
+}
 
 void mavlink_send_param(int n){
 	struct param_struct p;
@@ -125,6 +142,22 @@ void mavlink_send_cmd_ack(uint16_t command, uint8_t result, uint8_t progress){
 	mavlink_send_msg(&msg);
 }
 
+int mav_cmd_list = 0;
+void mavlink_loop(void){
+	if (mav_cmd_list){
+		for (; mav_cmd_list<=params_getSize(); mav_cmd_list++){
+			int queue = ModemControl_SendPacket_GetQueue();
+			//int size = ModemControl_SendPacket_SizeQueue();
+			if (queue != 0) return;
+//			if (queue < 0) return;			// is full tx buf
+//			if ((queue-2) > size) return;
+			mavlink_send_param(mav_cmd_list);
+			if (MAV_DEBUG) Printf("reuest read ans %d\n\r", mav_cmd_list);
+		}
+		mav_cmd_list=0;
+	}
+
+}
 void mavlink_receive(char rxdata){
 
 	mavlink_message_t msg;
@@ -205,11 +238,8 @@ void mavlink_receive(char rxdata){
 				target_system = mavlink_msg_param_set_get_target_system(&msg);
 				target_component = mavlink_msg_param_set_get_target_component(&msg);
 
-				int p;
-				for (p=1;p<=params_getSize(); p++){
-					mavlink_send_param(p);
-					if (MAV_DEBUG) Printf("reuest read ans %d\n\r", p);
-				}
+				mav_cmd_list = 1;
+
 				break;
 			}
 			case MAVLINK_MSG_ID_HEARTBEAT:
@@ -233,11 +263,27 @@ void mavlink_receive(char rxdata){
 						t_param[5] = mavlink_msg_command_long_get_param5(&msg);
 						mavlink_send_cmd_ack(cmd, MAV_RESULT_ACCEPTED, 100);
 						if (MAV_DEBUG) Printf("rx calibrate\n\r");
-						if (t_param[1] != 0)if (MAV_DEBUG) Printf("rx calibrate gyro %d\n\r", (int)t_param[1]);
-						if (t_param[5] != 0)if (MAV_DEBUG) Printf("rx calibrate acc %d\n\r", (int)t_param[5]);
+						if (t_param[1] != 0){
+							imu_GyroCalibrate_run();
+							if (MAV_DEBUG) Printf("rx calibrate gyro %d\n\r", (int)t_param[1]);
+						}
+						if (t_param[5] != 0){
+							imu_AccCalibrate_run();
+							if (MAV_DEBUG) Printf("rx calibrate acc %d\n\r", (int)t_param[5]);
+						}
 
-						if (t_param[5] != 0) imu_AccCalibrate_run();
-
+						break;
+					case(MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN):
+						t_param[2] = mavlink_msg_command_long_get_param2(&msg);
+						if (t_param[2] == 3) {
+							Printf("reboot. Key clear\n\r");
+							Clear_Bootloader_Key();
+							system_reboot();
+						}
+						else if (t_param[2] == 1) {
+							Printf("reboot...\n\r");
+							system_reboot();
+						}
 						break;
 				}
 				break;

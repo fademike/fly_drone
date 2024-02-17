@@ -21,6 +21,7 @@ uint64_t system_getTime_us(void);
 uint32_t system_getTime_ms(void);
 void system_Delay_us(unsigned int us);
 void system_Delay_ms(unsigned  ms);
+void system_reboot(void);
 int Thread_Cycle(void);
 
 int Battery_getVoltage(void);

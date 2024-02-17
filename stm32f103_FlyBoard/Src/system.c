@@ -57,6 +57,10 @@ void system_Delay_ms(unsigned  ms){
 	}while((0 <= t) && (t <  ms));
 }
 
+void system_reboot(void){
+	NVIC_SystemReset();
+}
+
 //poll all threads
 //execute the stream with the highest priority and exit
 int Thread_Cycle(void)

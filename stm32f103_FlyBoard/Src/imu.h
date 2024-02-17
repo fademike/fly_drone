@@ -18,6 +18,7 @@ enum {
 
 int imu_getStatus(void);
 int imu_GyroCalibrate_getStatus(void);
+void imu_GyroCalibrate_run(void);
 
 int imu_AccCalibrate_getStatus(void);
 void imu_AccCalibrate_run(void);

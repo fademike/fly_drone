@@ -84,7 +84,7 @@ void Printf(const char *fmt, ...);
 
 
 void SYS_myTick(void);
-
+uint32_t Get_tick(void);
 void TimerIRQ_Handler (void);
 
 void test_set(int set);
@@ -98,7 +98,7 @@ void test_set(int set);
 
 #define msleep HAL_Delay
 #include "system.h"
-#define GetTime_ms system_getTime_ms
+#define GetTime_ms Get_tick//system_getTime_ms
 
 #define STM32   //LINUX // STM32
 #define SI4463//nRF24	//SI4463

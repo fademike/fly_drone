@@ -19,10 +19,10 @@
 int readFLASH(uint32_t address, int *d);
 int writeFLASH(uint32_t address, int * d);
 
-#define PARAM_ALL (45)
-#define ADDR_ACC_X (PARAM_ALL+0)
-#define ADDR_ACC_Y (PARAM_ALL+1)
-#define ADDR_ACC_Z (PARAM_ALL+2)
+#define PARAM_ALL (46)
+#define ADDR_ACC_X (200+0)
+#define ADDR_ACC_Y (200+1)
+#define ADDR_ACC_Z (200+2)
 
 struct param_struct t_param[PARAM_ALL] = {	{"flash_params", {.FLOAT=0}, MAV_PARAM_TYPE_REAL32},	//0		//MAV_PARAM_TYPE_INT8},
 											{"f_kp", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},		//1
@@ -51,34 +51,36 @@ struct param_struct t_param[PARAM_ALL] = {	{"flash_params", {.FLOAT=0}, MAV_PARA
 											{"f_kp_arm", {.FLOAT=0.5f}, MAV_PARAM_TYPE_REAL32},		//19
 											{"f_ki", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},			//20
 
-//											{"motor1_action", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},//21
-											{"motor1_action", {.FLOAT=149.0f}, MAV_PARAM_TYPE_REAL32},//21
-											{"motor1_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//22
-											{"motor1_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//23
-											{"motor1_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//24
-											{"motor1_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//25
-											{"motor1_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//26
+//											{"m1_action", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},//21
+											{"m1_action", {.FLOAT=149.0f}, MAV_PARAM_TYPE_REAL32},//21
+											{"m1_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//22
+											{"m1_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//23
+											{"m1_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//24
+											{"m1_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//25
+											{"m1_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//26
 
-											{"motor2_action", {.FLOAT=89.0f}, MAV_PARAM_TYPE_REAL32},//27
-											{"motor2_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//28
-											{"motor2_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//29
-											{"motor2_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//30
-											{"motor2_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//31
-											{"motor2_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//32
+											{"m2_action", {.FLOAT=89.0f}, MAV_PARAM_TYPE_REAL32},//27
+											{"m2_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//28
+											{"m2_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//29
+											{"m2_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//30
+											{"m2_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//31
+											{"m2_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//32
 
-											{"motor3_action", {.FLOAT=169.0f}, MAV_PARAM_TYPE_REAL32},//33
-											{"motor3_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//34
-											{"motor3_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//35
-											{"motor3_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//36
-											{"motor3_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//37
-											{"motor3_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//38
+											{"m3_action", {.FLOAT=169.0f}, MAV_PARAM_TYPE_REAL32},//33
+											{"m3_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//34
+											{"m3_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//35
+											{"m3_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//36
+											{"m3_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//37
+											{"m3_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//38
 
-											{"motor4_action", {.FLOAT=101.0f}, MAV_PARAM_TYPE_REAL32},//39
-											{"motor4_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//40
-											{"motor4_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//41
-											{"motor4_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//42
-											{"motor4_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//43
-											{"motor4_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//44
+											{"m4_action", {.FLOAT=101.0f}, MAV_PARAM_TYPE_REAL32},//39
+											{"m4_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//40
+											{"m4_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//41
+											{"m4_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//42
+											{"m4_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//43
+											{"m4_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//44
+
+											{"alt_max", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//44
 
 										};
 

@@ -10,6 +10,12 @@
 #include "MotorControl.h"
 #include "main.h"
 
+
+#include "VL53L0X.h"
+
+//statInfo_t_VL53L0X distanceStr;
+
+
 void imu_autoCalibrateByNoize(int stop);
 void imu_accCalibrate(void);
 
@@ -26,10 +32,13 @@ struct axis_struct {
 };
 
 struct imuAngle_struct imuAngle = {0,0,0};
+int vl53_alt = -1;
 
 float imu_getPitch(void){return imuAngle.pitch;}
 float imu_getRoll(void){return imuAngle.roll;}
 float imu_getYaw(void){return imuAngle.yaw;}
+
+int imu_getAlt(void){return vl53_alt;}
 
 float atan2_approx(float y, float x);
 
@@ -86,12 +95,30 @@ int imu_init(void){
 #include "fast_atan.h"
 #include "main.h"
 void imu_loop(void){
+	static uint64_t l_time_us = 0;
+
 	if (status != 0 ){imu_init(); return ;}
+
+	int distance = -1;
+
+	int alt_max = (int)params_GetMemValue(ALT_MAX);
+	//if ((alt_max < 0) || (alt_max > 2000)) alt_max = 0;
+	if (alt_max > 0) {
+		int state_vl53l = vl53_getStatus();
+		if (state_vl53l !=0 ) initVL53L0X(1);	// if during the initialization process -> init continue
+		else if (state_vl53l == 0){					// if initialized
+			  uint16_t d;
+			  int r = readRangeContinuousMillimeters(0, &d);
+			  if (r) distance = d;
+			  if (distance == 8191) distance = 0;	// FIXME
+			  else if (distance>2000) distance=2000;
+			  if (r) vl53_alt = distance;
+		}
+	}
 	int ret = MPU_GetData(&EstA, &EstG, &t);
 	if (ret<0) {imu_init(); return ;}
 	//int ch = MPU_check();
 
-	static uint64_t l_time_us = 0;
 	uint64_t c_time_us = system_getTime_us();
 
 	float dt = (c_time_us - l_time_us);

@@ -13,9 +13,17 @@ typedef enum  {
 	thread_test					= 5,
 }thread_name;							// names of my threads
 
+enum  {
+	THREAD_NAME 			= 0,
+	THREAD_ENABLE			= 1,
+	THREAD_T_STARTUP		= 2,
+	THREAD_T_INTERVAL		= 3,
+	THREAD_T_PRERUN			= 4,
+	THREAD_STATUS			= 5,
+	THREAD_PRIORITY			= 6,
+} thread_variables;
 
-
-
+void system_changeThread(int name, int param, int value);
 
 uint64_t system_getTime_us(void);
 uint32_t system_getTime_ms(void);

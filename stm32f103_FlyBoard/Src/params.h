@@ -1,4 +1,7 @@
 
+// define for motor get params...
+#define PARAM_MOTOR_LEN 6	//ACTION,MIN,MAX,..
+#define PARAM_PID_LEN 4		//P,I,D,CHAN
 
 enum {
 	PARAM_FLASH = 		0,
@@ -46,6 +49,8 @@ enum {
 	PARAM_M4_MUX = 		42,
 	PARAM_M4_INIT = 	43,
 	PARAM_M4_OFFSET = 	44,
+
+	ALT_MAX = 			45,
 };
 
 union param_value{

@@ -29,7 +29,10 @@ struct ThreadFlyStruct {			// This is time settings for some processes
 						{thread_test,				1, 	StartUP, 		500, 	0,	0, 		1},
 };
 
-
+void system_changeThread(int name, int param, int value){
+	int * ptrToStruct = (int *)&ThreadFly[name];
+	ptrToStruct[param] = value;
+}
 
 uint64_t system_getTime_us(void){
 	//uint64_t local_time_us = 0;

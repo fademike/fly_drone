@@ -164,6 +164,31 @@ void Printf(const char *fmt, ...)
 	if (ModemControl_getStatus()>=0) mavlink_send_statustext(buf);
 }
 
+
+//int vl53l0x_init(void){
+//	int start_time = tick_ms;
+//	initVL53L0X(1, &hi2c2);
+//	int st = vl53_getStatus();
+//	//if (ret != true) return -1;
+//
+//	int stop_time = tick_ms;
+//	Printf("time init = %d, ret = %d\n\r", stop_time-start_time, st);
+//	return st;
+//}
+
+//uint16_t vl53l0x_getDistance(void){
+//
+//	// uint16_t distance is the distance in millimeters.
+//	// statInfo_t_VL53L0X distanceStr is the statistics read from the sensor.
+//	uint16_t distance = readRangeSingleMillimeters(&distanceStr);
+//
+//	return distance;
+//}
+
+void iwgd_refresh(void){
+	//HAL_IWDG_Refresh(&hiwdg);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -189,7 +214,12 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+//  __HAL_RCC_I2C2_CLK_ENABLE();
+//  HAL_Delay(100);
+//  __HAL_RCC_I2C2_FORCE_RESET();
+//  HAL_Delay(100);
+//  __HAL_RCC_I2C2_RELEASE_RESET();
+//  HAL_Delay(100);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -208,7 +238,68 @@ int main(void)
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
 
-  //CLEAR_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN); //disable I2c		//TODO uncomment
+//  Printf("start debug\n\r");
+//	while(1){
+//
+//
+////		char msgBuffer[3];
+////		msgBuffer[0] = 0;//0x55;
+////		  int i2cStat = HAL_I2C_Mem_Write(&hi2c2, ADDRESS_DEFAULT | 0, 0x88, 1, msgBuffer, 1, 10);
+////		  HAL_Delay(2);
+////		  i2cStat = HAL_I2C_Mem_Read(&hi2c2, ADDRESS_DEFAULT | 1, 0x91, 1, msgBuffer, 1, 10);
+////
+////		  if (i2cStat == HAL_BUSY){
+//////				__HAL_RCC_I2C2_FORCE_RESET();
+//////				HAL_Delay(100);
+//////				__HAL_RCC_I2C2_RELEASE_RESET();
+//////				HAL_Delay(100);
+////		  }
+////		  HAL_Delay(500);
+////		  static int o=0;
+////		  Printf("clk %d, dat %x, stat %d\n\r", o++, msgBuffer[0], i2cStat);
+////
+////continue;
+//		  Printf("start init...\n\r");
+////		  Printf("start debug\n\r");
+////		  HAL_Delay(500);
+////		  continue;
+//			  int ret_vl53l = vl53l0x_init();
+//			  while(ret_vl53l!=0){
+//				  Printf("vl53l0x_init reinit %d\n\r", ret_vl53l);
+//				  HAL_Delay(1000);
+//				  ret_vl53l = vl53l0x_init();
+//			  };
+//			  if (ret_vl53l == 0) startContinuous(0);
+//			  //char msgBuffer = 0xAA;
+//			  //HAL_I2C_Mem_Write(&hi2c2, 0b01010010 | 0, 0xAA, 1, &msgBuffer, 1, 2);
+//				  if (ret_vl53l < 0) Printf("vl53l0x_init false %d\n\r", ret_vl53l);
+//				  else Printf("vl53l0x_init ok\n\r");
+//
+//				  int ii=0;
+//				  for (ii=0;ii<1000*1000;ii++){
+//					  //uint16_t d = vl53l0x_getDistance();
+//					  uint16_t d=0;
+////					  int r = readRangeSingleMillimeters(&distanceStr, &d);
+//					  int r = readRangeContinuousMillimeters(0, &d);
+//					  if (r) Printf("dist = %d, ret = %d\n\r", d, r);
+//					  if (r) HAL_Delay(50);
+//				  }
+//	}
+//
+////  HAL_GPIO_DeInit(GPIOB, GPIO_PIN_10|GPIO_PIN_11);
+////
+////  GPIO_InitTypeDef GPIO_InitStruct = {0};
+////  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11;
+////  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+////  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+////  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+////  __HAL_RCC_I2C2_CLK_ENABLE();
+//
+////  while(1){//hi2c2.State = HAL_I2C_STATE_READY; SET_BIT(hi2c2.Instance->CR1, I2C_CR1_STOP);
+////
+////
+////	  char msgBuffer = 0xAA; HAL_I2C_Mem_Write(&hi2c2, 0b01010010 | 0, 0xAA, 1, &msgBuffer, 1, 2);}
+//  //CLEAR_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN); //disable I2c		//TODO uncomment
 
   if (CONFLICT)DIS_I2C;
 
@@ -250,6 +341,19 @@ int main(void)
 
   HAL_IWDG_Refresh(&hiwdg);
 
+
+//
+//	int ret_vl53l=-1;
+//
+//	while(ret_vl53l < 0){
+//			  ret_vl53l = vl53l0x_init();
+//			  //char msgBuffer = 0xAA;
+//			  //HAL_I2C_Mem_Write(&hi2c2, 0b01010010 | 0, 0xAA, 1, &msgBuffer, 1, 2);
+//				  if (ret_vl53l < 0) Printf("vl53l0x_init false %d\n\r", ret_vl53l);
+//				  else Printf("vl53l0x_init ok\n\r");
+//	}
+
+
   Printf("Started...\n\r");
 
   /* USER CODE END 2 */
@@ -271,12 +375,40 @@ int main(void)
 	  			//HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_RESET);
 		  	  	break;
 	  	  case(thread_test):
-				//Printf("test %d, %d, %d\n\r", (int)imu_getPitch(), (int)imu_getRoll(), (int)imu_getYaw());
-				//Printf("st %d, %d, %d\n\r", (int)imu_getStatus(), (int)ModemControl_getStatus(), (int)imu_getPitch());
 
-				//MotorControl_getMotorValue(mot);
-				//Printf("motor %d, %d, %d, %d\n\r", mot[0],mot[1],mot[2],mot[3]);
 				HAL_GPIO_TogglePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin);
+
+	  	  	  	  if (MotorControl_isArmed()) system_changeThread(thread_test, THREAD_T_INTERVAL, 100);
+	  	  	  	  else system_changeThread(thread_test, THREAD_T_INTERVAL, 500);
+
+	  	  	  	  if (!MotorControl_isArmed()){
+					int dist = imu_getAlt();
+					int st = vl53_getStatus();
+					Printf("dist = %d, st=%d\n\r", dist, st);
+	  	  	  	  }
+//				//Printf("test %d, %d, %d\n\r", (int)imu_getPitch(), (int)imu_getRoll(), (int)imu_getYaw());
+//				//Printf("st %d, %d, %d\n\r", (int)imu_getStatus(), (int)ModemControl_getStatus(), (int)imu_getPitch());
+//
+//				//MotorControl_getMotorValue(mot);
+//				//Printf("motor %d, %d, %d, %d\n\r", mot[0],mot[1],mot[2],mot[3]);
+//				HAL_GPIO_TogglePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin);
+//
+//					initVL53L0X(1);
+//					int ret_vl53l = vl53_getStatus();
+//
+////				  int ret_vl53l = vl53l0x_init();
+//				  if (ret_vl53l != 0) Printf("vl53l0x_init false %d\n\r", ret_vl53l);
+//				  else {Printf("vl53l0x_init ok\n\r");
+//
+//					  uint16_t d;
+//					  int r = readRangeContinuousMillimeters(0, &d);
+//					  if (r) Printf("dist = %d, ret = %d\n\r", d, r);
+//				  }
+////				//uint16_t d = vl53l0x_getDistance();
+////				Printf("distance %d\n\r", vl53l0x_getDistance());
+////
+////				Printf(".distance\n\r");
+
 	  			break;
 	  	  case(thread_ModemControl):
 				mavlink_loop();
@@ -294,6 +426,7 @@ int main(void)
 	  			break;
 	  	  case(thread_MAV_send_status):
 				mavlink_send_status();
+				mavlink_send_altitude();
 	  			break;
 	  	  case(thread_ADC):
 				Battery_Read();

@@ -119,6 +119,17 @@ void mavlink_send_attitude(void){
 	mavlink_send_msg(&msg);
 }
 
+void mavlink_send_altitude(void){
+	mavlink_message_t msg;
+	int timer_us = system_getTime_ms()*1000;
+	int mm_alt = imu_getAlt();
+	if (mm_alt < 0) return;	// if no init
+	float alt = (float)mm_alt/1000.0f; // convert mm to m
+
+	mavlink_msg_altitude_pack(1, 200, &msg, timer_us, 0, 0, 0, 0, alt, 0);
+	mavlink_send_msg(&msg);
+}
+
 void mavlink_send_battery_status(void){
 	mavlink_message_t msg;
 	uint16_t voltages[1] = {4200};

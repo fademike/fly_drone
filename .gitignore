@@ -3,3 +3,5 @@
 *.bin
 *.elf
 *.o
+out/
+.vscode/

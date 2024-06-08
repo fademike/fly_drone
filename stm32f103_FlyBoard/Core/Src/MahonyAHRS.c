@@ -16,6 +16,7 @@
 
 #include "MahonyAHRS.h"
 #include <math.h>
+#include "fast_atan.h"
 
 //---------------------------------------------------------------------------------------------------
 // Definitions
@@ -56,6 +57,40 @@ void MahonyGetQuat(float * quat){
 	quat[1] = q1;
 	quat[2] = q2;
 	quat[3] = q3;
+}
+
+void MahonyGetAngles(float * pitch,float * roll,float * yaw) {
+
+	// const double px = 2 * (q1*q3 - q0*q2);
+	// const double py = 2 * (q0*q1 + q2*q3);
+	// const double pz = q0*q0 - q1*q1 - q2*q2 + q3*q3;
+
+	// *yaw = -(float)atan2approx(2 * q1 * q2 - 2 * q0 * q3, 2 * q0*q0 + 2 * q1 * q1 - 1);
+	// *pitch = -(float)atan2approx(px, sqrt(py*py + pz*pz));
+	// *roll = (float)atan2approx(py, sqrt(px*px + pz*pz)) ;
+
+//https://github.com/ros/geometry2/blob/589caf083cae9d8fae7effdb910454b4681b9ec1/tf2/include/tf2/impl/utils.h#L87
+
+  const double sqx = q1 * q1;
+  const double sqy = q2 * q2;
+  const double sqz = q3 * q3;
+  const double sqw = q0 * q0;
+
+  // Cases derived from https://orbitalstation.wordpress.com/tag/quaternion/
+  double sarg = -2 * (q1*q3 - q0*q2) / (sqx + sqy + sqz + sqw); /* normalization added from urdfom_headers */
+  if (sarg <= -0.99999) {
+    *pitch = -0.5*M_PI;
+    *roll  = 0;
+    *yaw   = -2 * atan2approx(q2, q1);
+  } else if (sarg >= 0.99999) {
+    *pitch = 0.5*M_PI;
+    *roll  = 0;
+    *yaw   = 2 * atan2approx(q2, q1);
+  } else {
+    *pitch = asin(sarg);
+    *roll  = atan2approx(2 * (q2*q3 + q0*q1), sqw - sqx - sqy + sqz);
+    *yaw   = atan2approx(2 * (q1*q2 + q0*q3), sqw + sqx - sqy - sqz);
+  }
 }
 
 void MahonyAHRSupdate(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz) {

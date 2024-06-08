@@ -240,3 +240,48 @@ double atan2approx(double y,double x)
 
 
 
+
+
+#define M_PIf       3.14159265358979323846f
+
+#define MIN(a,b) \
+  __extension__ ({ __typeof__ (a) _a = (a); \
+  __typeof__ (b) _b = (b); \
+  _a < _b ? _a : _b; })
+#define MAX(a,b) \
+  __extension__ ({ __typeof__ (a) _a = (a); \
+  __typeof__ (b) _b = (b); \
+  _a > _b ? _a : _b; })
+#define ABS(x) \
+  __extension__ ({ __typeof__ (x) _x = (x); \
+  _x > 0 ? _x : -_x; })
+
+// Initial implementation by Crashpilot1000 (https://github.com/Crashpilot1000/HarakiriWebstore1/blob/396715f73c6fcf859e0db0f34e12fe44bace6483/src/mw.c#L1292)
+// Polynomial coefficients by Andor (http://www.dsprelated.com/showthread/comp.dsp/21872-1.php) optimized by Ledvinap to save one multiplication
+// Max absolute error 0,000027 degree
+// atan2_approx maximum absolute error = 7.152557e-07 rads (4.098114e-05 degree)
+float atan2_approx(float y, float x)
+{
+    #define atanPolyCoef1  3.14551665884836e-07f
+    #define atanPolyCoef2  0.99997356613987f
+    #define atanPolyCoef3  0.14744007058297684f
+    #define atanPolyCoef4  0.3099814292351353f
+    #define atanPolyCoef5  0.05030176425872175f
+    #define atanPolyCoef6  0.1471039133652469f
+    #define atanPolyCoef7  0.6444640676891548f
+
+    float res, absX, absY;
+    absX = fabsf(x);
+    absY = fabsf(y);
+    res  = MAX(absX, absY);
+    if (res) res = MIN(absX, absY) / res;
+    else res = 0.0f;
+    res = -((((atanPolyCoef5 * res - atanPolyCoef4) * res - atanPolyCoef3) * res - atanPolyCoef2) * res - atanPolyCoef1) / ((atanPolyCoef7 * res + atanPolyCoef6) * res + 1.0f);
+    if (absY > absX) res = (M_PIf / 2.0f) - res;
+    if (x < 0) res = M_PIf - res;
+    if (y < 0) res = -res;
+    return res;
+}
+
+
+

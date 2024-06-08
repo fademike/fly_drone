@@ -32,60 +32,67 @@ struct axis_struct {
 	float z;
 };
 
-struct imuAngle_struct imuAngle = {0,0,0};
+typedef union {
+	struct axis_struct axis;
+	struct imuAngle_struct angle;
+	float value[3];
+} vector;
+
+vector vector_setConst(vector axes, float Value);
+vector vector_addConst(vector axes, float Value);
+vector vector_muxConst(vector axes, const float Value);
+vector vector_divConst(vector axes, const float Value);
+vector vector_muxVector(vector axes, const vector axes2);
+vector vector_addVector(vector axes, vector axes2);
+vector vector_removeVector(vector axes, vector axes2);
+vector vector_rearranging(vector axes, int * val);
+
+vector imuAngle = {.angle.pitch=0,.angle.roll=0,.angle.yaw=0};
 int vl53_alt = -1;
 
-float imu_getPitch(void){return imuAngle.pitch;}
-float imu_getRoll(void){return imuAngle.roll;}
-float imu_getYaw(void){return imuAngle.yaw;}
+float imu_getPitch(void){return imuAngle.angle.pitch;}
+float imu_getRoll(void){return imuAngle.angle.roll;}
+float imu_getYaw(void){return imuAngle.angle.yaw;}
 
 int imu_getAlt(void){return vl53_alt;}
 
-float atan2_approx(float y, float x);
+vector gyro = {.axis.x=0,.axis.y=0,.axis.z=0};
+vector gyro_offs = {.axis.x=0,.axis.y=0,.axis.z=0};
 
-pos_struct EstA, EstG;
-short t;
-//int MPU_GetData(pos_struct * EstA, pos_struct * EstG, short * t);
-
-
-struct axis_struct gyro = {0,0,0};
-struct axis_struct gyro_ang = {0,0,0};
-struct axis_struct gyro_offs = {0,0,0};
-
-struct axis_struct acc = {0,0,0};
-struct axis_struct acc_offs = {0,0,0};
+vector acc = {.axis.x=0,.axis.y=0,.axis.z=0};
+vector acc_offs = {.axis.x=0,.axis.y=0,.axis.z=0};
 
 static int status =-1;
 static int statusCalibrateGyro = -1;
 static int statusCalibrateAcc = 0;
 
-int imu_getStatus(void){	// fail, calib, ok
+int imu_getStatus(void){	// status < 0 - fail imu init; 0 - ok
 	return status;
 }
-int imu_GyroCalibrate_getStatus(void){	// fail, calib, ok
+int imu_GyroCalibrate_getStatus(void){	// -2 fail, -1 process calib, 0 ok (in the process of recalibration)
 	return statusCalibrateGyro;
 }
-void imu_GyroCalibrate_run(void){	// fail, calib, ok
+void imu_GyroCalibrate_run(void){
 	statusCalibrateGyro = -2;
 }
-int imu_AccCalibrate_getStatus(void){	// fail, calib, ok
+int imu_AccCalibrate_getStatus(void){	// -1 need to calibrate, 0 finish of calibration
 	return statusCalibrateAcc;
 }
-void imu_AccCalibrate_run(void){	// fail, calib, ok
+void imu_AccCalibrate_run(void){
 	statusCalibrateAcc = -1;
 }
 //void imu_AccOffset_get(int GYROorACC, float * ox, float * oy, float * oz){
 void imu_AccOffset_get(float * ox, float * oy, float * oz){
-	*ox = acc_offs.x;
-	*oy = acc_offs.y;
-	*oz = acc_offs.z;
+	*ox = acc_offs.axis.x;
+	*oy = acc_offs.axis.y;
+	*oz = acc_offs.axis.z;
 }
 //void imu_AccOffset_set(int GYROorACC, float ox, float oy, float oz){
 void imu_AccOffset_set(float ox, float oy, float oz){
 	Printf("acc set %d, %d, %d\n\r", (int)(ox*1000.0f), (int)(oy*1000.0f), (int)(oz*1000.0f));
-	acc_offs.x = ox;
-	acc_offs.y = oy;
-	acc_offs.z = oz;
+	acc_offs.axis.x = ox;
+	acc_offs.axis.y = oy;
+	acc_offs.axis.z = oz;
 }
 int imu_init(void){
 	status = MPU_Init();
@@ -94,346 +101,276 @@ int imu_init(void){
 }
 
 
-
-static float LPFilterAlt(int data){
-	static float f = 0.0f;
-	f += (data-f)*0.01f;
-	return (uint16_t)f;
-}
-
-void UpdateOrientation(int * dat_r, float * dat_r_sig){
+void UpdateOrientation(int * dat_r, float * dat_a_sig, float * dat_g_sig){
 	
-		static float orientation = 0;
-		float param_orientation = params_GetMemValue(PARAM_ORIENTATION);
+	static float orientation = 0;
+	float param_orientation = params_GetMemValue(PARAM_ORIENTATION);
 
-		// 0, 24 - norm
-		// 60 - up
-		// dataset: 6 bit: sig_third,sig_second,sig_first,second_axis,[first_axis:2]
-		// first_axis <= x=0, y=1, z=2;
-		// second_axis = the remaining axes: if first_axit = x(0) => y=0,z=1; if first_axit = z(2) => x=0,y=1...
-		// sig_first, sig_second, sig_third = sig of choised axis; 0- normal; 1 - sig minus
-		if (orientation != param_orientation){
-			orientation = param_orientation;
-			if ((0 <= orientation) && (orientation <= 0xFFFF)){
-			//if (!(param_orientation%1.0)){ //FIXME
-				int i_o = (int)param_orientation;
-				int v1 = i_o&0x3;
-				if (v1>=AXIS_Z) v1 = AXIS_Z;
-				dat_r[0] = v1;	// set first axis
-				int v2 = (i_o>>2)&0x1;
-				if ((v1 == AXIS_X) && (v2 == AXIS_Y)) v2++;
-				if (v1 == v2) v2++;
-				int v3 = 0;
-				if ((v1 == v3) || (v2 == v3)) v3++;
-				if ((v1 == v3) || (v2 == v3)) v3++;
+	// 0, 24 - norm
+	// 60 - up
+	// dataset: 6 bit: sig_third,sig_second,sig_first,second_axis,[first_axis:2]
+	// first_axis <= x=0, y=1, z=2;
+	// second_axis = the remaining axes: if first_axit = x(0) => y=0,z=1; if first_axit = z(2) => x=0,y=1...
+	// sig_first, sig_second, sig_third = sig of choised axis; 0- normal; 1 - sig minus
+	if (orientation != param_orientation){
+		orientation = param_orientation;
+		if ((0 <= orientation) && (orientation <= 0xFFFF)){
+			int i_o = (int)param_orientation;
+			int v1 = i_o&0x3;
+			if (v1>=AXIS_Z) v1 = AXIS_Z;
+			dat_r[0] = v1;	// set first axis
+			int v2 = (i_o>>2)&0x1;
+			if ((v1 == AXIS_X) && (v2 == AXIS_Y)) v2++;
+			if (v1 == v2) v2++;
+			int v3 = 0;
+			if ((v1 == v3) || (v2 == v3)) v3++;
+			if ((v1 == v3) || (v2 == v3)) v3++;
 
-				dat_r[0] = v1;
-				dat_r[1] = v2;
-				dat_r[2] = v3;
+			dat_r[0] = v1;
+			dat_r[1] = v2;
+			dat_r[2] = v3;
 
-				int sig = (i_o>>3)&0x7;
-				int s=0;
-				for (s=0;s<3;s++) dat_r_sig[s] = 1.0;
-				for (s=0;s<3;s++) if (sig&(0x1<<s)) dat_r_sig[s] = -1.0;
+			int sig = (i_o>>4)&0x7;
+			int s=0;
+			for (s=0;s<3;s++) dat_a_sig[s] = 1.0;
+			for (s=0;s<3;s++) if (sig&(0x1<<s)) dat_a_sig[s] = -1.0;
+			sig = (i_o>>8)&0x7;
+			for (s=0;s<3;s++) dat_g_sig[s] = 1.0;
+			for (s=0;s<3;s++) if (sig&(0x1<<s)) dat_g_sig[s] = -1.0;
 
-				Printf("set new %d. %d, %d, %d sig %d %d, %d\n\r", i_o, v1,v2,v3,
-						(int)dat_r_sig[0],(int)dat_r_sig[1],(int)dat_r_sig[2]);
-			}
+			Printf("set new (%d). %d, %d, %d sig a %d %d, %d sig g %d %d, %d\n\r", i_o, v1,v2,v3,
+					(int)dat_a_sig[0],(int)dat_a_sig[1],(int)dat_a_sig[2], (int)dat_g_sig[0],(int)dat_g_sig[1],(int)dat_g_sig[2]);
 		}
+	}
 }
 
 
-#include "fast_atan.h"
-#include "main.h"
 void imu_loop(void){
 	static uint64_t l_time_us = 0;
 
 	if (status != 0 ){imu_init(); return ;}
 
-	int distance = -1;
-
-	int alt_max = (int)params_GetMemValue(ALT_MAX);
-	//if ((alt_max < 0) || (alt_max > 2000)) alt_max = 0;
-	if (alt_max > 0) {
-		int state_vl53l = vl53_getStatus();
-		if (state_vl53l != 0) initVL53L0X(1);	// if during the initialization process -> init continue
-		else if (state_vl53l == 0){					// if initialized
+	// reading the altitude
+	if ((int)params_GetMemValue(ALT_MAX) > 0) {
+		if (vl53_getStatus() != 0) {vl53_alt = -1; initVL53L0X(1);}	// if during the initialization process -> init continue
+		else {					// if initialized
 			  uint16_t d;
-			  int r = readRangeContinuousMillimeters(0, &d);
-			  if (r) distance = d;
-			  if (distance == 8191) distance = 0;	// FIXME
-			  else if (distance>2000) distance=2000;
-			  if (r) vl53_alt = distance;
-			  vl53_alt = LPFilterAlt(vl53_alt);
+			  if(readRangeContinuousMillimeters(0, &d)) vl53_alt = d;
 		}
 	}
-	int ret = MPU_GetData(&EstA, &EstG, &t);
+
+	vector EstA, EstG;
+	short t;
+	int ret = MPU_GetDataFloat(EstA.value, EstG.value, &t);
 	if (ret<0) {imu_init(); return ;}
 
 	uint64_t c_time_us = system_getTime_us();
 
 	float dt = (c_time_us - l_time_us);
-	float kp = params_GetMemValue(PARAM_FL_KP);
-	float ki = params_GetMemValue(PARAM_FL_KI);
-	float q[4];	//quat
+	float kp = params_GetMemValue(PARAM_P_KP);
+	float ki = params_GetMemValue(PARAM_P_KI);
 
 	if (l_time_us  == 0 ) {l_time_us = c_time_us; return;} //first cycle. when haven't l_time.
 	l_time_us = c_time_us;
 
 	// Preparing gyro data..
-	gyro.x = ((float)EstG.x)*lsb2dps_gyro + gyro_offs.x;
-	gyro.y = ((float)EstG.y)*lsb2dps_gyro + gyro_offs.y;
-	gyro.z = ((float)EstG.z)*lsb2dps_gyro + gyro_offs.z;
+	gyro = vector_addVector(vector_muxConst(EstG, lsb2dps_gyro), gyro_offs);
 	imu_autoCalibrateByNoize(MotorControl_getState() == MOTOR_STATUS_LAUNCHED);	// calibrate gyro, if motor not launched, if necessary
 
-
-	// Preparing acc data..
-	acc.x = ((float)EstA.x)*1.0f*lsb2g_acc + acc_offs.x;
-	acc.y = ((float)EstA.y)*1.0f*lsb2g_acc + acc_offs.y;
-	acc.z = ((float)EstA.z)*1.0f*lsb2g_acc + acc_offs.z;
+	// Preparing acc data..	 convert "raw" data to "g" data and add offset
+	acc = vector_addVector(vector_muxConst(EstA, lsb2g_acc), acc_offs);
 	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) imu_accCalibrate(); 	// calibrate acc, if motor not launched, if necessary
 
-	if (statusCalibrateGyro < 0) { // TODO need test.. maybe
-		imuAngle.pitch = 0;
-		imuAngle.roll = 0;
-		imuAngle.yaw = 0;
-		MotorControl_loop();
-		return;
-	}
+	// if (statusCalibrateGyro < 0) { // TODO need test.. maybe
+	// 	imuAngle = vector_setConst(imuAngle, 0);	// reset values
+	// 	MotorControl_loop();
+	// 	return;
+	// }
 
-	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) kp = params_GetMemValue(PARAM_FL_KP);
-	else kp = params_GetMemValue(PARAM_FL_KP_ARM);
-	//#define sq(x) ((x)*(x))
-	// * sq(1.0f/256);
-	// if (fabs(sqrt(acc.x*acc.x+acc.y*acc.y+acc.z*acc.z)-1.0f)>0.2){
-	// 	HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_SET);
+	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) kp = params_GetMemValue(PARAM_P_KP);
+	else kp = params_GetMemValue(PARAM_P_KP_ARM);
+
+	// TODO heavy 
+	// #define sq(x) ((x)*(x))
+	// 
+	// if (fabs(sqrt(sq(acc.axis.x)+sq(acc.axis.y)+sq(acc.axis.z))-1.0f)>0.1){	 //if heavy (more than 1g +-0.1g)
+	// 	HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_SET);
+	// 	params_GetMemValue(PARAM_FL_KP_ARM);
 	// }
 	// else {
-	// 	HAL_GPIO_WritePin(PIN_TEST3_GPIO_Port, PIN_TEST3_Pin, GPIO_PIN_RESET);
+	// 	HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET);
+	// 	params_GetMemValue(PARAM_FL_KP);
 	// }
 
 	MahonyUpdateVariables(dt*1e-6f, kp, ki);
 
-		static int dat_r[3] = {AXIS_X,AXIS_Y,AXIS_Z};	// orientation imu
-		static float dat_r_sig[3] = {1.0,1.0,1.0};
+	// updating params for imu orientation
+	static int dat_r[3] = {AXIS_X,AXIS_Y,AXIS_Z};	// orientation imu for rearranging
+	static vector dat_a_sig = {.axis.x=1.0f,.axis.y=1.0f,.axis.z=1.0f};
+	static vector dat_g_sig = {.axis.x=1.0f,.axis.y=1.0f,.axis.z=1.0f};
+	UpdateOrientation(dat_r, dat_a_sig.value, dat_g_sig.value);
 
-		UpdateOrientation(dat_r, dat_r_sig);
+	// convert deg to rad, change sig and rearranging values from orientation
+	vector g = vector_rearranging(vector_muxVector(vector_muxConst(gyro, M_PI/180.0f), dat_g_sig), dat_r);
+	// change sig and rearranging values from orientation
+	vector a = vector_rearranging(vector_muxVector(acc, dat_a_sig), dat_r);
 
-		float g[3];
-		float a[3];
+	MahonyAHRSupdateIMU(g.axis.x, g.axis.y, g.axis.z, a.axis.x, a.axis.y, a.axis.z);
 
-		g[dat_r[0]] = dat_r_sig[0]*gyro.x*M_PI/180.0f;
-		g[dat_r[1]] = dat_r_sig[1]*gyro.y*M_PI/180.0f;
-		g[dat_r[2]] = dat_r_sig[2]*gyro.z*M_PI/180.0f;
+	// float yaw;
+	// static float yaw_free = 0;
+	MahonyGetAngles(&imuAngle.angle.pitch, &imuAngle.angle.roll, &imuAngle.angle.yaw);
 
-		a[dat_r[0]] = dat_r_sig[0]*acc.x;
-		a[dat_r[1]] = dat_r_sig[1]*acc.y;
-		a[dat_r[2]] = dat_r_sig[2]*acc.z;
+	imuAngle = vector_muxConst(imuAngle, 180.0/M_PI); // convert rad to deg
 
-		MahonyAHRSupdateIMU(g[0], g[1], g[2], a[0], a[1], a[2]);
-		//MahonyAHRSupdateIMU(gyro.x*M_PI/180.0f,gyro.y*M_PI/180.0f,gyro.z*M_PI/180.0f,acc.x,acc.y,acc.z);
-
-	MahonyGetQuat(q);
-
-	const float px = 2 * (q[1]*q[3] - q[0]*q[2]);
-	const float py = 2 * (q[0]*q[1] + q[2]*q[3]);
-	const float pz = q[0]*q[0] - q[1]*q[1] - q[2]*q[2] + q[3]*q[3];
-
-							//simple,us	| without sqrt, us
-//#define ATAN atan2approx	//199		|	149
-//#define ATAN atan2_approx	//201		|	160
-//#define ATAN atan2PI_4	//186		|	137
-//#define ATAN atan2_approx
-//#define ATAN atan2LUT
-
-	float yaw = atan2approx(2 * q[1] * q[2] - 2 * q[0] * q[3], 2 * q[0]*q[0] + 2 * q[1] * q[1] - 1) * 180/M_PI;
-	float roll = atan2approx(px, sqrt(py*py + pz*pz))  * 180/M_PI;			// sqrt(py*py + pz*pz))
-	float pitch = atan2approx(py, sqrt(px*px + pz*pz))  * 180/M_PI;			// FIXME MAYBE DEL SQRT
-
-	imuAngle.pitch = pitch;
-	imuAngle.roll = -roll;
-	//imuAngle.yaw = yaw;
-	static float yaw_free = 0;
-	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) {yaw_free = yaw;}
-	imuAngle.yaw = yaw - yaw_free;
-	if (imuAngle.yaw<-180)imuAngle.yaw += 360.0f;
-	else if (imuAngle.yaw>180)imuAngle.yaw -= 360.0f;
 
 	MotorControl_loop();
 }
 
-
-#define def_update_min(a, b) {if (a.x>b.x) a.x = b.x; if (a.y>b.y) a.y = b.y; if (a.z>b.z) a.z = b.z;}
-#define def_update_max(a, b) {if (a.x<b.x) a.x = b.x; if (a.y<b.y) a.y = b.y; if (a.z<b.z) a.z = b.z;}
-#define def_set_valuesXYZ(a, b) {a.x=b; a.y=b; a.z=b;}
+#define LIMIT 3000
+#define DEF_UPDATE_MIN(a, b) {if (a.x>b.x) a.x = b.x; if (a.y>b.y) a.y = b.y; if (a.z>b.z) a.z = b.z;}
+#define DEF_UPDATE_MAX(a, b) {if (a.x<b.x) a.x = b.x; if (a.y<b.y) a.y = b.y; if (a.z<b.z) a.z = b.z;}
 
 void imu_autoCalibrateByNoize(int stop){
 	static uint32_t l_time = 0;
 	uint32_t time = system_getTime_ms();
-	static struct axis_struct GyroClbAcc_axis = {0,0,0};
-	static struct axis_struct min = {3000,3000,3000}, max = {-3000,-3000,-3000};
-	static struct axis_struct diff_last = {6000,6000,6000};	// save the best result is in terms of noise
+	static vector average = {0,0,0}; 	//for get average data
+	static vector min = {LIMIT,LIMIT,LIMIT}, max = {-LIMIT,-LIMIT,-LIMIT};
+	static vector diff_last = {2*LIMIT,2*LIMIT,2*LIMIT};	// save the best result is in terms of noise
 	//
 	static int nStop = 0;
-
-	static uint32_t GyroClbCnt = 0;
+	static uint32_t cnt = 0;	// count new data
 
 	if (statusCalibrateGyro < -1) {	// reset calibrate
 		statusCalibrateGyro=-1;
-		def_set_valuesXYZ(diff_last, 6000);
+		diff_last = vector_setConst(diff_last, 2*LIMIT);
+		l_time = time;
 	}
 
 	uint32_t timeWait = time-l_time;
-	if ((0 <= timeWait) && (timeWait < 1000))//(GyroClbCnt < (1*gyro_freq))//1000)
+	if (timeWait < 1000)//(GyroClbCnt < (1*gyro_freq))//1000)
 	{
 		//for (i=0;i<3;i++)GyroClbAcc_axis[i] += sVel_axis[i];
-		def_update_min(min, gyro);
-		def_update_max(max, gyro);
+		DEF_UPDATE_MIN(min.axis, gyro.axis);
+		DEF_UPDATE_MAX(max.axis, gyro.axis);
 
-		GyroClbAcc_axis.x +=gyro.x;
-		GyroClbAcc_axis.y +=gyro.y;
-		GyroClbAcc_axis.z +=gyro.z;
-		GyroClbCnt++;
+		average = vector_addVector(average, gyro);
+		cnt++;
 		nStop += stop;	// if calibration has been stopped
 	}
 	else
 	{
-		struct axis_struct diff_res = {max.x-min.x, max.y-min.y, max.z-min.z};
-		if ((GyroClbCnt >=10) && 	// minimum count
+		vector diff_res = {max.axis.x-min.axis.x, max.axis.y-min.axis.y, max.axis.z-min.axis.z};
+		if ((cnt >=10) && 	// minimum count
 				(nStop == 0) &&		// if there was no calibration stop
-				((diff_res.x<diff_last.x) && (diff_res.y<diff_last.y) && (diff_res.z<diff_last.z))	// if the best result is in terms of noise
+				((diff_res.axis.x<diff_last.axis.x) && (diff_res.axis.y<diff_last.axis.y) && (diff_res.axis.z<diff_last.axis.z))	// if the best result is in terms of noise
 				){
-			gyro_offs.x -= GyroClbAcc_axis.x/(float)GyroClbCnt;
-			gyro_offs.y -= GyroClbAcc_axis.y/(float)GyroClbCnt;
-			gyro_offs.z -= GyroClbAcc_axis.z/(float)GyroClbCnt;
+			
+			// gyro_offs -= average gyro data
+			gyro_offs = vector_removeVector(gyro_offs, vector_divConst(average, (float)cnt));
 
 			diff_last = diff_res;
-
-			def_set_valuesXYZ(gyro_ang, 0);
-
 			statusCalibrateGyro = 0;
 		}
 
 		// reset values:
 		nStop = 0;
-
-		GyroClbCnt = 0;
-		def_set_valuesXYZ(GyroClbAcc_axis, 0);
-		def_set_valuesXYZ(min, 3000);
-		def_set_valuesXYZ(max, -3000);
-
+		cnt = 0;
+		average = vector_setConst(average, 0);
+		min = vector_setConst(min, LIMIT);
+		max = vector_setConst(max, -LIMIT);
 		l_time = time;
 	}
-
-
 }
 
 
 void imu_accCalibrate(void){
 	static uint32_t l_time = 0;
-
 	static int start = 1;
-	uint32_t time = system_getTime_ms();
-	static struct axis_struct AccClbAcc_axis = {0,0,0};
-	//
-	static uint32_t GyroClbCnt = 0;
+	static vector average = {.axis.x=0,.axis.y=0,.axis.z=0};
+	static uint32_t cnt = 0;
 
 	// if no needs calibrate
-	if (statusCalibrateAcc >= 0) {l_time = time; start = 1; return;}
+	if (statusCalibrateAcc >= 0) {return;}
 
+	uint32_t time = system_getTime_ms();
 	if (start != 0){
 		start=0;
-		GyroClbCnt = 0;
-		def_set_valuesXYZ(AccClbAcc_axis, 0);
-		def_set_valuesXYZ(acc_offs, 0);
+		l_time = time;
+		cnt = 0;
+		average = vector_setConst(average, 0);
+		acc_offs = vector_setConst(acc_offs, 0);	// reseting offset to get data without offset
 		return;
 	}
 
-	uint32_t timeWait = time-l_time;
-	if ((0 <= timeWait) && (timeWait < 1000))//(GyroClbCnt < (1*gyro_freq))//1000)
+	uint32_t dt = time-l_time;
+	if (time < l_time){dt = 0; l_time = time;}	//when the counter overflows
+	if (dt < 1000)
 	{
-		AccClbAcc_axis.x +=acc.x;
-		AccClbAcc_axis.y +=acc.y;
-		AccClbAcc_axis.z +=acc.z;
-		GyroClbCnt++;
+		average = vector_addVector(average, acc);
+		cnt++;
 	}
 	else
 	{
-		if (GyroClbCnt == 0) {statusCalibrateAcc = 0; return;}
+		if (cnt == 0) {statusCalibrateAcc = -1; start = 1; return;}	// for avoid div zerro error
 
-#define ACC_MAX_LIMIT 1.0f
-		float offset_tmp[3];
-		offset_tmp[0] = AccClbAcc_axis.x/(float)GyroClbCnt;
-		offset_tmp[1] = AccClbAcc_axis.y/(float)GyroClbCnt;
-		offset_tmp[2] = AccClbAcc_axis.z/(float)GyroClbCnt;
+		average = vector_divConst(average, (float)(cnt*1.0f));	// get the average value 
+		vector offset_tmp = average;	// get the average value 
 
-		float A_abs[3];// = {acc_offs.x, acc_offs.y, acc_offs.z}
-			A_abs[0] = fabs(offset_tmp[0]);
-			A_abs[1] = fabs(offset_tmp[1]);
-			A_abs[2] = fabs(offset_tmp[2]);
-		Printf("average c: %d, %d, %d\n\r", (int)(offset_tmp[0]*1000), (int)(offset_tmp[1]*1000), (int)(offset_tmp[2]*1000));
+		float A_abs[3];
+		for (int i=0;i<AXES_ALL;i++) A_abs[i] = fabs(offset_tmp.value[i]);
 
-		int max_axis = AXIS_X;	// seeking main axis:
+		int max_axis = AXIS_X;	// seeking main axis: (and remove 1g from the main axis)
 		if (A_abs[AXIS_Y] > A_abs[max_axis]) max_axis = AXIS_Y;
 		if (A_abs[AXIS_Z] > A_abs[max_axis]) max_axis = AXIS_Z;
-		if (offset_tmp[max_axis]<0) offset_tmp[max_axis] = offset_tmp[max_axis] + ACC_MAX_LIMIT;
-		else offset_tmp[max_axis] = offset_tmp[max_axis] - ACC_MAX_LIMIT;
+		if (offset_tmp.value[max_axis]<0) offset_tmp.value[max_axis] += 1.0f;	// remove 1g
+		else offset_tmp.value[max_axis] -= 1.0f;	// remove 1g
 
-		acc_offs.x -= offset_tmp[AXIS_X];
-		acc_offs.y -= offset_tmp[AXIS_Y];
-		acc_offs.z -= offset_tmp[AXIS_Z];
+		acc_offs = vector_removeVector(acc_offs, offset_tmp);	// change result offset, by new data
 
-		Printf("acc c: %d, %d, %d\n\r", (int)(acc_offs.x*1000), (int)(acc_offs.y*1000), (int)(acc_offs.z*1000));
+		Printf("average c: %d, %d, %d\n\r", (int)(average.value[0]*1000), (int)(average.value[1]*1000), (int)(average.value[2]*1000));
+		Printf("acc c: %d, %d, %d\n\r", (int)(acc_offs.axis.x*1000), (int)(acc_offs.axis.y*1000), (int)(acc_offs.axis.z*1000));
 		statusCalibrateAcc = 0;
-
-		GyroClbCnt = 0;
-		def_set_valuesXYZ(AccClbAcc_axis, 0);
-
-		l_time = time;
+		start = 1;
+		cnt=0;
 	}
-
-
-}
-
-#define M_PIf       3.14159265358979323846f
-
-#define MIN(a,b) \
-  __extension__ ({ __typeof__ (a) _a = (a); \
-  __typeof__ (b) _b = (b); \
-  _a < _b ? _a : _b; })
-#define MAX(a,b) \
-  __extension__ ({ __typeof__ (a) _a = (a); \
-  __typeof__ (b) _b = (b); \
-  _a > _b ? _a : _b; })
-#define ABS(x) \
-  __extension__ ({ __typeof__ (x) _x = (x); \
-  _x > 0 ? _x : -_x; })
-
-// Initial implementation by Crashpilot1000 (https://github.com/Crashpilot1000/HarakiriWebstore1/blob/396715f73c6fcf859e0db0f34e12fe44bace6483/src/mw.c#L1292)
-// Polynomial coefficients by Andor (http://www.dsprelated.com/showthread/comp.dsp/21872-1.php) optimized by Ledvinap to save one multiplication
-// Max absolute error 0,000027 degree
-// atan2_approx maximum absolute error = 7.152557e-07 rads (4.098114e-05 degree)
-float atan2_approx(float y, float x)
-{
-    #define atanPolyCoef1  3.14551665884836e-07f
-    #define atanPolyCoef2  0.99997356613987f
-    #define atanPolyCoef3  0.14744007058297684f
-    #define atanPolyCoef4  0.3099814292351353f
-    #define atanPolyCoef5  0.05030176425872175f
-    #define atanPolyCoef6  0.1471039133652469f
-    #define atanPolyCoef7  0.6444640676891548f
-
-    float res, absX, absY;
-    absX = fabsf(x);
-    absY = fabsf(y);
-    res  = MAX(absX, absY);
-    if (res) res = MIN(absX, absY) / res;
-    else res = 0.0f;
-    res = -((((atanPolyCoef5 * res - atanPolyCoef4) * res - atanPolyCoef3) * res - atanPolyCoef2) * res - atanPolyCoef1) / ((atanPolyCoef7 * res + atanPolyCoef6) * res + 1.0f);
-    if (absY > absX) res = (M_PIf / 2.0f) - res;
-    if (x < 0) res = M_PIf - res;
-    if (y < 0) res = -res;
-    return res;
 }
 
 
+vector vector_setConst(vector axes, float Value){
+	for (int i=0;i<AXES_ALL;i++) axes.value[i]=Value;
+	return axes;
+}
+vector vector_addConst(vector axes, float Value){
+	for (int i=0;i<AXES_ALL;i++) axes.value[i]+=Value;
+	return axes;
+}
+vector vector_muxConst(vector axes, const float Value){
+	for (int i=0;i<AXES_ALL;i++) axes.value[i]*=Value;
+	return axes;
+}
+vector vector_divConst(vector axes, const float Value){
+	for (int i=0;i<AXES_ALL;i++) axes.value[i]/=Value;
+	return axes;
+}
+// vector vector_removeConst(vector axes, const float Value){
+// 	for (int i=0;i<AXES_ALL;i++) axes.value[i]-=Value;
+// 	return axes;
+// }
+vector vector_muxVector(vector axes, const vector axes2){
+	for (int i=0;i<AXES_ALL;i++) axes.value[i] *= axes2.value[i];
+	return axes;
+}
+vector vector_addVector(vector axes, vector axes2){
+	for (int i=0;i<AXES_ALL;i++) axes.value[i]+=axes2.value[i];
+	return axes;
+}
+vector vector_removeVector(vector axes, vector axes2){
+	for (int i=0;i<AXES_ALL;i++) axes.value[i]-=axes2.value[i];
+	return axes;
+}
+vector vector_rearranging(vector axes, int * val){
+	vector res;
+	for (int i=0;i<AXES_ALL;i++) if (val[i]<AXES_ALL)res.value[val[i]] = axes.value[i];
+	return res;
+}

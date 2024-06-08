@@ -3,28 +3,29 @@
 #define PARAM_MOTOR_LEN 6	//ACTION,MIN,MAX,..
 #define PARAM_PID_LEN 4		//P,I,D,CHAN
 
+// to access the parameters
 enum {
 	PARAM_FLASH = 		0,
-	PARAM_FL_KP = 		1,
+	PARAM_P_KP = 		1,
 	PARAM_ORIENTATION = 2,
 	PARAM_PID_T_P = 	3,
 	PARAM_PID_T_D = 	4,
 	PARAM_PID_T_I = 	5,
-	PARAM_MUX_T_CHAN = 	6,
+	PARAM_PID_T_MUX_CHAN = 	6,
 	PARAM_PID_P_P = 	7,
 	PARAM_PID_P_D = 	8,
 	PARAM_PID_P_I = 	9,
-	PARAM_MUX_P_CHAN = 	10,
+	PARAM_PID_P_MUX_CHAN = 	10,
 	PARAM_PID_R_P = 	11,
 	PARAM_PID_R_D = 	12,
 	PARAM_PID_R_I = 	13,
-	PARAM_MUX_R_CHAN = 	14,
+	PARAM_PID_R_MUX_CHAN = 	14,
 	PARAM_PID_Y_P = 	15,
 	PARAM_PID_Y_D = 	16,
 	PARAM_PID_Y_I = 	17,
-	PARAM_MUX_Y_CHAN = 	18,
-	PARAM_FL_KP_ARM = 	19,
-	PARAM_FL_KI = 		20,
+	PARAM_PID_Y_MUX_CHAN = 	18,
+	PARAM_P_KP_ARM = 	19,
+	PARAM_P_KI = 		20,
 	PARAM_M1_ACTION = 	21,
 	PARAM_M1_MIN = 		22,
 	PARAM_M1_MAX = 		23,
@@ -51,7 +52,8 @@ enum {
 	PARAM_M4_OFFSET = 	44,
 
 	ALT_MAX = 			45,
-	PARAM_T_STEP = 		46,
+	PARAM_PID_T_I_LIMIT = 	46,
+	PARAM_PID_T_I_MIN = 		47,
 };
 
 union param_value{

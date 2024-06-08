@@ -4,4 +4,5 @@
 *.elf
 *.o
 out/
+build/
 .vscode/

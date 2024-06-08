@@ -20,11 +20,11 @@ double atan2PI_4(double y,double x);	//425us
 double atan2approx(double y,double x);
 /*atan(x) ~ x*(pi/4+0.273-0.273*x) */
 
-
 double atan2LUT(double y,double x);
 double atan2LUTif(double y,double x);	//450us
 /* switch/if versions, compiler dependent which is faster*/
 
+float atan2_approx(float y, float x);
 
 
 

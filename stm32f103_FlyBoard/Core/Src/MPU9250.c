@@ -219,6 +219,21 @@ int MPU_GetData(pos_struct * Est_A, pos_struct * Est_G, short * t){
 }
 
 
+int MPU_GetDataFloat(float * Est_A, float * Est_G, short * t){
+	pos_struct G, A;
+
+	if (MPU_GetData(&A, &G, t) < 0) return -1;
+
+	Est_A[0] = (float) A.x;
+	Est_A[1] = (float) A.y;
+	Est_A[2] = (float) A.z;
+	
+	Est_G[0] = (float) G.x;
+	Est_G[1] = (float) G.y;
+	Est_G[2] = (float) G.z;
+
+	return 0;
+}
 
 int MPU_Get_acc(pos_struct * Est_A)
 {

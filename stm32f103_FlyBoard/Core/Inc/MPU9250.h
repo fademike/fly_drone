@@ -21,6 +21,7 @@ int MPU_Get_gyro(pos_struct * Est_G);
 int MPU_Get_temp(short temp);
 
 int MPU_GetData(pos_struct * EstA, pos_struct * EstG, short * t);
+int MPU_GetDataFloat(float * Est_A, float * Est_G, short * t);
 
 #define lsb2dps_gyro (2000.0f/32767.0f)		//multiplier for converter
 #define lsb2g_acc (16.0f/32767.0f)			//multiplier for converter	//FIXME	(8000.0f/32767.0f)

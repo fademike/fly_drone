@@ -137,8 +137,8 @@ int ApplyMotorValues(float * m, int reset){
 	return 0;
 }
 
-static float LPFilter(float * f, float data){
-	*f += (data-*f)*0.05f;
+static float LPFilter(float * f, float data, float K){
+	*f += (data-*f)*K;
 	return *f;
 }
 
@@ -149,7 +149,7 @@ void MotorControl_loop(void){
 
 	UpdateFromParam();
 
-
+	
 
 	float pitch = imu_getPitch();
 	float roll = imu_getRoll();
@@ -170,10 +170,10 @@ void MotorControl_loop(void){
 
 	float force[4];
 
-	float mux_t = params_GetMemValue(PARAM_MUX_T_CHAN);
-	float mux_p = params_GetMemValue(PARAM_MUX_P_CHAN);
-	float mux_r = params_GetMemValue(PARAM_MUX_R_CHAN);
-	float mux_y = params_GetMemValue(PARAM_MUX_Y_CHAN);
+	float mux_t = params_GetMemValue(PARAM_PID_T_MUX_CHAN);
+	float mux_p = params_GetMemValue(PARAM_PID_P_MUX_CHAN);
+	float mux_r = params_GetMemValue(PARAM_PID_R_MUX_CHAN);
+	float mux_y = params_GetMemValue(PARAM_PID_Y_MUX_CHAN);
 
 	static int ind_update = 0;
 	if (delay_update > 2000){	// if you haven't received chain any more
@@ -182,16 +182,14 @@ void MotorControl_loop(void){
 		MotorControl_init();
 		return;
 	}
-	else {
-		ind_update = 1;
-	}
+	ind_update = 1;
 
 	float Throll_Chan_muxed = Throll_Chan * mux_t;
 	float Pitch_Chan_muxed = Pitch_Chan * mux_p;
 	float Roll_Chan_muxed = Roll_Chan * mux_r;
 	static float Yaw_Chan_muxed = 0;
-#define IMU_FREQ 100.0f
-	Yaw_Chan_muxed +=Yaw_Chan * mux_y/IMU_FREQ;
+#define YAW_UPDATED_FREQ 10.0f // Hz 
+	Yaw_Chan_muxed +=Yaw_Chan * mux_y/YAW_UPDATED_FREQ;
 	if (Yaw_Chan_muxed > 180)Yaw_Chan_muxed -= 360.0f;
 	if (Yaw_Chan_muxed < -180)Yaw_Chan_muxed += 360.0f;
 
@@ -200,32 +198,37 @@ void MotorControl_loop(void){
 		set_alt = -alt;
 		Throll_Chan_muxed*=(float)alt_max/1000.0f;	// change raw value to percent alt_max
 
-		if (Throll_Chan_muxed <= alt) {
-			mPID[THROTTLE].MaxLimit = params_GetMemValue(PARAM_T_STEP)/10.0f;	//for a slow change
+		#define SLOW_WINDOW 0.3f
+
+		// if (((Throll_Chan_muxed*(1.0-SLOW_WINDOW)) <= alt) && (alt <= (Throll_Chan_muxed*(1.0f+2*SLOW_WINDOW))) ) {
+		if (((Throll_Chan_muxed*(1.0-SLOW_WINDOW)) <= alt)) {
+			mPID[THROTTLE].MaxLimit = params_GetMemValue(PARAM_PID_T_I_LIMIT)/10.0f;	//for a slow change
 		} else {
-			mPID[THROTTLE].MaxLimit = params_GetMemValue(PARAM_T_STEP);
+			mPID[THROTTLE].MaxLimit = params_GetMemValue(PARAM_PID_T_I_LIMIT);
 		}
-		// static int dd=0;	// for debug
-		// if (dd++>=100){
-		// 	dd=0;
-		// 	Printf("diff = %d, chan=%d, alt=%d\n\r", abs((int)Throll_Chan_muxed - (int)alt), (int)Throll_Chan_muxed, (int)alt);
-		// }
 	}
 	else {
 		mPID[THROTTLE].I=0;
 		mPID[THROTTLE].D=0;
 	}
 
+	static float yaw_free = 0;
+	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) {yaw_free = yaw; Yaw_Chan_muxed = 0;}
+	yaw = yaw - yaw_free;
+	if (yaw <-180) yaw += 360.0f;
+	else if (yaw>180) yaw -= 360.0f;
+
 	force[THROTTLE] = SetPID(&mPID[THROTTLE], Throll_Chan_muxed + set_alt, 0);
 	force[PITCH] = SetPID(&mPID[PITCH], pitch + Pitch_Chan_muxed, 0);
 	force[ROLL] = SetPID(&mPID[ROLL], roll + Roll_Chan_muxed, 0);
 	force[YAW] = SetPID(&mPID[YAW], yaw + Yaw_Chan_muxed, 0);
 
-	if (mPID[THROTTLE].lastResult<0) mPID[THROTTLE].lastResult = 0;
+	float t_min = params_GetMemValue(PARAM_PID_T_I_MIN);
+	if (mPID[THROTTLE].lastResult<t_min) mPID[THROTTLE].lastResult = t_min;		// set min value!
 
 	static float f = 0.0f;
 
-	SetMotorValues(LPFilter(&f, force[THROTTLE]), force[PITCH], force[ROLL], force[YAW], motor);
+	SetMotorValues(LPFilter(&f, force[THROTTLE], 1), force[PITCH], force[ROLL], force[YAW], motor);	//LPFilter(&f, force[THROTTLE], 0.05f)
 
 	if (Throll_Chan <= 0) ApplyMotorValues(motor, 1);	// reset motor
 	else ApplyMotorValues(motor, 0);
@@ -237,7 +240,7 @@ void UpdateFromParam(void){
 	mPID[THROTTLE].I = params_GetMemValue(PARAM_PID_T_I);
 	mPID[THROTTLE].D = params_GetMemValue(PARAM_PID_T_D);
 
-	mPID[THROTTLE].MaxLimit = params_GetMemValue(PARAM_T_STEP);
+	mPID[THROTTLE].MaxLimit = params_GetMemValue(PARAM_PID_T_I_LIMIT);
 
 	mPID[PITCH].P = params_GetMemValue(PARAM_PID_P_P);
 	mPID[PITCH].I = params_GetMemValue(PARAM_PID_P_I);
@@ -253,32 +256,14 @@ void UpdateFromParam(void){
 
 	int i=0;
 	for (i=0;i<4;i++){
-		float get_data_action = 0;
-		float get_data_min = 0;
-		float get_data_max = 0;
-//		float get_data_mux = 0;
-		float get_data_init = 0;
-		float get_data_offset = 0;
 
-			get_data_action = params_GetMemValue(PARAM_M1_ACTION + (PARAM_MOTOR_LEN) *i);
-			get_data_min = params_GetMemValue(PARAM_M1_MIN + (PARAM_MOTOR_LEN) *i);
-			get_data_max = params_GetMemValue(PARAM_M1_MAX + (PARAM_MOTOR_LEN) *i);
-//			get_data_mux = params_GetMemValue(PARAM_M1_MUX);
-			get_data_init = params_GetMemValue(PARAM_M1_INIT + (PARAM_MOTOR_LEN) *i);
-			get_data_offset = params_GetMemValue(PARAM_M1_OFFSET + (PARAM_MOTOR_LEN) *i);
+		motor_action[i] = (unsigned int)params_GetMemValue(PARAM_M1_ACTION + (PARAM_MOTOR_LEN) *i);
+		motor_min[i] = params_GetMemValue(PARAM_M1_MIN + (PARAM_MOTOR_LEN) *i);
+		motor_max[i] = params_GetMemValue(PARAM_M1_MAX + (PARAM_MOTOR_LEN) *i);
+//		motor_mux[i] = params_GetMemValue(PARAM_M1_MUX);
+		motor_offset[i] = params_GetMemValue(PARAM_M1_OFFSET + (PARAM_MOTOR_LEN) *i);
 
-		if ((0 <= get_data_action) || (get_data_action<=1023)) {
-			motor_action[i] = (unsigned int)get_data_action;
-		}
-
-		motor_min[i] = get_data_min;
-		motor_max[i] = get_data_max;
-//		motor_mux[i] = get_data_mux;
-		motor_offset[i] = get_data_offset;
-
-//		if ((1000 <= get_data_init) && (get_data_init<=2000)) {
-			motor_init[i] = (unsigned short) get_data_init;
-//		}
+		motor_init[i] = (unsigned short) params_GetMemValue(PARAM_M1_INIT + (PARAM_MOTOR_LEN) *i);
 	}
 
 

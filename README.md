@@ -10,7 +10,7 @@ Android phone (AppFlyControl) <-> usb-uart(example: cp2102) <-> uart->rf (STM8S0
 <br>
 or:
 <br>
-Android phone (AppFlyControl) <-wifi-> Linux PC (flyLinuxServer) <-> uart->rf (STM8S003_AND_SI4463) <-> fly_drone
+Android phone (QGroundControl or AppFlyControl) <-wifi-> Linux PC (flyLinuxServer) <-> uart->rf (STM8S003_AND_SI4463) <-> fly_drone
 
 on board:
 - DC-DC for 2,3,..S battery operation. To operate on a 1S battery, it is necessary to replace the components to turn off the DC-DC.
@@ -38,6 +38,7 @@ fly_drone<br>
 - imu, rf, vl53l0x<br>
 - acc and gyro calibrate<br>
 - for save params and acc calibrate on flash, need to change "flash_params"<br>
+- it is compatible with qgroungcontrol (tested on android)<br>
 <br>
 And in repository:<br>
 kicad:<br>

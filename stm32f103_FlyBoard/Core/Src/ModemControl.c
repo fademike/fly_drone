@@ -253,7 +253,7 @@ int32_t ModemControl_Loop(void)
   if (ptr_SendSymbol>0) { //if to have symbols to send
     if (delay_afterSendSymbol > 2) ModemControl_SendSymbol_Complete();  // prepare to tx, when no new data 2ms
   }
-
+  
 
   if ((mode_synchro) && (delay_toWaitAnswer > 0)){return 0;}      //The timer between the packets being sent. Otherwise, heap data was not accepted.
 

@@ -27,6 +27,7 @@ void MahonyAHRSupdate(float gx, float gy, float gz, float ax, float ay, float az
 void MahonyAHRSupdateIMU(float gx, float gy, float gz, float ax, float ay, float az);
 void MahonyUpdateVariables(double dt, float kp, float ki);
 void MahonyGetQuat(float * quat);
+void MahonyGetAngles(float * pitch,float * roll,float * yaw);
 
 #endif
 //=====================================================================================================

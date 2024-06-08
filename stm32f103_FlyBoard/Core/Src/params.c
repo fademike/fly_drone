@@ -19,37 +19,37 @@
 int readFLASH(uint32_t address, int *d);
 int writeFLASH(uint32_t address, int * d);
 
-#define PARAM_ALL (47)
+#define PARAM_ALL (48)
 #define ADDR_ACC_X (200+0)
 #define ADDR_ACC_Y (200+1)
 #define ADDR_ACC_Z (200+2)
 
 struct param_struct t_param[PARAM_ALL] = {	{"flash_params", {.FLOAT=0}, MAV_PARAM_TYPE_REAL32},	//0		//MAV_PARAM_TYPE_INT8},
-											{"f_kp", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},		//1
+											{"p_kp", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},		//1
 											{"p_orientation", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//2
 
 											{"pid_t_p", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},		//3
 											{"pid_t_d", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//4
 											{"pid_t_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//5
-											{"mux_t_chan", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},	//6
+											{"pid_t_muxChan", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},	//6
 
 											{"pid_p_p", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},		//7
 											{"pid_p_d", {.FLOAT=500.0f}, MAV_PARAM_TYPE_REAL32},	//8
 											{"pid_p_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//9
-											{"mux_p_chan", {.FLOAT=50.0f}, MAV_PARAM_TYPE_REAL32},	//10
+											{"pid_p_muxChan", {.FLOAT=50.0f}, MAV_PARAM_TYPE_REAL32},	//10
 
 											{"pid_r_p", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},		//11
 											{"pid_r_d", {.FLOAT=500.0f}, MAV_PARAM_TYPE_REAL32},	//12
 											{"pid_r_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//13
-											{"mux_r_chan", {.FLOAT=50.0f}, MAV_PARAM_TYPE_REAL32},	//14
+											{"pid_r_muxChan", {.FLOAT=50.0f}, MAV_PARAM_TYPE_REAL32},	//14
 
 											{"pid_y_p", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},	//15
 											{"pid_y_d", {.FLOAT=500.0f}, MAV_PARAM_TYPE_REAL32},	//16
 											{"pid_y_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//17
-											{"mux_y_chan", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},	//18
+											{"pid_y_muxChan", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},	//18
 
-											{"f_kp_arm", {.FLOAT=0.5f}, MAV_PARAM_TYPE_REAL32},		//19
-											{"f_ki", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},			//20
+											{"p_kp_arm", {.FLOAT=0.5f}, MAV_PARAM_TYPE_REAL32},		//19
+											{"p_ki", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},			//20
 
 //											{"m1_action", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},//21
 											{"m1_action", {.FLOAT=149.0f}, MAV_PARAM_TYPE_REAL32},//21
@@ -81,7 +81,8 @@ struct param_struct t_param[PARAM_ALL] = {	{"flash_params", {.FLOAT=0}, MAV_PARA
 											{"m4_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//44
 
 											{"alt_max", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//44
-											{"t_step", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//6
+											{"pid_t_iLimit", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//6
+											{"pid_t_imin", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//5
 
 										};
 
@@ -118,18 +119,18 @@ int params_getSize(void){
 	return PARAM_ALL;
 }
 int params_setValue(int n, union param_value value, int type){
-	int t = n-1;
+	int t = n;
 	if ((t<0) || (t>=PARAM_ALL)) return HAL_ERROR;
 	if (type == MAV_PARAM_TYPE_REAL32) t_param[t].param_value.FLOAT = value.FLOAT;
 	else if (type == MAV_PARAM_TYPE_INT8) t_param[t].param_value.INT = (int)value.INT;
 	else t_param[t].param_value.FLOAT = value.FLOAT;
 
 	//Printf("param set %d, %d\n\r", n, (int) value.FLOAT);
-	if (n == 1) params_save();
+	if (n == 0) params_save();
 	return HAL_OK;
 }
 int params_getValue(int n, union param_value * value, int type){
-	int t = n-1;
+	int t = n;
 	if ((t<0) || (t>=PARAM_ALL)) return HAL_ERROR;
 	if (type == MAV_PARAM_TYPE_REAL32) value->FLOAT = t_param[t].param_value.FLOAT;
 	else if (type == MAV_PARAM_TYPE_INT8) value->FLOAT = t_param[t].param_value.INT;
@@ -137,20 +138,20 @@ int params_getValue(int n, union param_value * value, int type){
 	return HAL_OK;
 }
 int params_getParam(int n, struct param_struct * param){
-	int t = n-1;
+	int t = n;
 	if ((t<0) || (t>=PARAM_ALL)) return HAL_ERROR;
 	*param = t_param[t];
 	return HAL_OK;
 }
 int params_getIndexById(char * id){
-	int i=0;// flag of existence param
+	int i=-1;// flag of existence param
 	for (i=0;i<PARAM_ALL; i++){									// find rx param in param base
 		if (strcmp(id, t_param[i].param_id)==0){				// if rx param == param base
 			//Printf("strcmp %s,  %d \n\r", t_param[i].param_id, i);
-			return i+1;
+			return i;
 		}
 	}
-	return 0;
+	return -1;
 }
 
 

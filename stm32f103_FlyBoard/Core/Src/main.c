@@ -214,8 +214,8 @@ int main(void)
 
   MotorControl_init();
 
-  imu_init();
-  if (ModemControl_init() < 0) Printf("MC_init false\n\r");
+  if (imu_init() < 0) while(1){};
+  if (ModemControl_init() < 0) {Printf("MC_init false\n\r"); while(1);}
 
   HAL_IWDG_Refresh(&hiwdg);
 
@@ -239,13 +239,14 @@ int main(void)
 
 				  HAL_GPIO_TogglePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin);
           if (MotorControl_isArmed()) system_changeThread(thread_test, THREAD_T_INTERVAL, 100);
-          else system_changeThread(thread_test, THREAD_T_INTERVAL, 500);
+          else system_changeThread(thread_test, THREAD_T_INTERVAL, 500);  //500
 
           int alt_max = (int)params_GetMemValue(ALT_MAX);
           if ((alt_max > 0) && (!MotorControl_isArmed())){
             int dist = imu_getAlt();
             int st = vl53_getStatus();
-            Printf("dist = %d, st=%d\n\r", dist, st);
+            // Printf("dist = %d, st=%d\n\r", dist, st);
+            // Printf("%d,%d\n\r", dist, st);
           }
 	  			break;
 	  	  case(thread_ModemControl):
@@ -260,8 +261,8 @@ int main(void)
 				  mavlink_send_attitude();
 	  			break;
 	  	  case(thread_MAV_send_status):
+          mavlink_send_heartbeat();
           mavlink_send_status();
-          mavlink_send_altitude();
 	  			break;
 	  	  case(thread_ADC):
 				  Battery_Read();

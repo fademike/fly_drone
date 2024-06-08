@@ -838,6 +838,7 @@ int stopContinuous(void)
 // extraStats provides additional info for this measurment. Set to 0 if not needed.
 int readRangeContinuousMillimeters( statInfo_t_VL53L0X *extraStats, uint16_t * data) {	//570us delay (i2c_clk = 400kHz)
 
+  int ret = 1;
   uint8_t tempBuffer[12];
   uint16_t temp;
 	  while ((readReg(RESULT_INTERRUPT_STATUS) & 0x07) == 0) {
@@ -870,10 +871,13 @@ int readRangeContinuousMillimeters( statInfo_t_VL53L0X *extraStats, uint16_t * d
 	temp                    = (tempBuffer[0x0A]<<8) | tempBuffer[0x0B];
 	extraStats->rawDistance = temp;
   }
+
+  if (temp > 2000) ret = 0;
+
   *data = temp;
   writeReg(SYSTEM_INTERRUPT_CLEAR, 0x01);
 
-  return 1;
+  return ret;
 }
 
 // Performs a single-shot range measurement and returns the reading in

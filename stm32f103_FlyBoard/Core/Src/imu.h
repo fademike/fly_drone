@@ -2,7 +2,8 @@
 enum {
 	AXIS_X = 0,
 	AXIS_Y = 1,
-	AXIS_Z = 2
+	AXIS_Z = 2,
+	AXES_ALL = 3,
 };
 enum {
 	THROTTLE = 0,

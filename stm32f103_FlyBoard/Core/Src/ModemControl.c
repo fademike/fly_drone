@@ -49,8 +49,8 @@ volatile int32_t delay_measureTx = 0;
 volatile int32_t delay_afterSendSymbol = 0;
 uint8_t NeedAnswer = 0;
 
-uint8_t mode_blockPacket = SEND_PACKETBLOCK;
-uint8_t mode_synchro = SYNCHRO_MODE;
+const uint8_t mode_blockPacket = SEND_PACKETBLOCK;
+const uint8_t mode_synchro = SYNCHRO_MODE;
 
 uint8_t rfPack_getType(uint8_t * buff){
   return buff[0];
@@ -183,12 +183,9 @@ void ModemControl_timeUpdate(void){
 }
 
 int32_t ModemControl_init(void){
-  // static uint8_t buf_tx[CMD_LIST_SIZE*PACKET_LEN];
-  // static uint8_t buf_rx[CMD_LIST_SIZE*PACKET_LEN];
-  // cb_init(&toTx, buf_tx, CMD_LIST_SIZE, PACKET_LEN);
-  // cb_init(&toRx, buf_rx, CMD_LIST_SIZE, PACKET_LEN);
-  cb_init(&toTx, CMD_LIST_SIZE, PACKET_LEN);
-  cb_init(&toRx, CMD_LIST_SIZE, PACKET_LEN);
+
+  cb_init(&toTx, CMD_LIST_SIZE, PACKET_LEN);  // init buffer for tx (to rf)
+  cb_init(&toRx, CMD_LIST_SIZE, PACKET_LEN);  // init buffer for rx (from rf)
 
   ModemControl_status = rf_modem->init();//RFinit();
   return ModemControl_status;
@@ -232,9 +229,7 @@ void ModemControl_Send(uint8_t * buf){
   ModemControl_timeUpdate();
   delay_measureTx = 0;  // reset timer to caltulate time tx pack
 
-  //test_set(1);
   ModemControl_status = rf_modem->write(buf, PACKET_LEN);   // TX Data
-  //test_set(0);
 
   if (!mode_synchro) return;
 
@@ -248,13 +243,12 @@ int32_t ModemControl_Loop(void)
   if (ModemControl_status < 0) {ModemControl_init(); return -1;}
   ModemControl_timeUpdate();
 
-  if (ModemControl_Read() != 0) return 1;
+  if (ModemControl_Read() != 0) return 1; // if you have read something.. go back and read again
 
   if (ptr_SendSymbol>0) { //if to have symbols to send
     if (delay_afterSendSymbol > 2) ModemControl_SendSymbol_Complete();  // prepare to tx, when no new data 2ms
   }
   
-
   if ((mode_synchro) && (delay_toWaitAnswer > 0)){return 0;}      //The timer between the packets being sent. Otherwise, heap data was not accepted.
 
 

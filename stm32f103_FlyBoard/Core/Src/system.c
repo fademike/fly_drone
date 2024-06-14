@@ -4,30 +4,25 @@
 #include "stm32f1xx.h"
 #include "main.h"
 
-#define StartUP 2000
-
+#define STARTUP 2000
 
 extern TIM_HandleTypeDef htim1;
 
-#define PRIOVITY_LIMIT 5
 // My threads
-
 struct ThreadFlyStruct {			// This is time settings for some processes
-	int name;		//enabled = 1 => on; else off
 	int enabled;		//enabled = 1 => on; else off
 	int t_startup;		//time to run
 	int t_interval;		//interval to run
 	int t_previous_run;		//interval to run
-
-	int status;			//status thread // if (status<0) => error; else pointer in process
-	int priority;		// 0..PRIOVITY_LIMIT;
-} 		ThreadFly[] = {	{thread_IMU_loop,			1, 	StartUP, 		2, 		0,	0, 		1},
-						{thread_MAV_send_attitude,	1, 	StartUP, 		100, 	0,	0, 		1},
-						{thread_MAV_send_status,	1, 	StartUP, 		1000, 	0,	0, 		1},
-						{thread_ADC,				1, 	0, 				10, 	0,	0, 		1},
-						{thread_ModemControl,		1, 	StartUP, 		1, 		0,	0, 		1},
-						{thread_test,				1, 	StartUP, 		500, 	0,	0, 		1},
+} 		ThreadFly[THREAD_ALL] = {	
+	[THREAD_IMU_LOOP] = 			{1, 	STARTUP, 		2, 		0},
+	[THREAD_MAV_SEND_ATTITUDE] = 	{1, 	STARTUP, 		100, 	0},
+	[THREAD_MAV_SEND_STATUS] = 		{1, 	STARTUP, 		1000, 	0},
+	[THREAD_ADC] = 					{1, 	0, 				10, 	0},
+	[THREAD_MODEMCONTROL] = 		{1, 	STARTUP, 		1, 		0},
+	[THREAD_TEST] = 				{1, 	STARTUP, 		500, 	0},
 };
+
 
 void system_changeThread(int name, int param, int value){
 	int * ptrToStruct = (int *)&ThreadFly[name];
@@ -50,14 +45,14 @@ void system_Delay_us(unsigned int us){
 	uint64_t stime = system_getTime_us(), t=0;
 	do {
 		t = system_getTime_us() - stime;
-	}while((0 <= t) && (t <  us));
+	}while(t <  us);
 }
 
-void system_Delay_ms(unsigned  ms){
+void system_Delay_ms(unsigned int  ms){
 	uint32_t stime = system_getTime_ms(), t=0;
 	do {
 		t = system_getTime_ms() - stime;
-	}while((0 <= t) && (t <  ms));
+	}while(t <  ms);
 }
 
 void system_reboot(void){
@@ -68,36 +63,14 @@ void system_reboot(void){
 //execute the stream with the highest priority and exit
 int Thread_Cycle(void)
 {
-	int thread_all=sizeof(ThreadFly)/sizeof(struct ThreadFlyStruct);
-	int priority=0;
-	int i=0;
-	static char priority_found = 0;	// at the start, the search for priorities
-	static char priorityVar[PRIOVITY_LIMIT+1] = {0,};	// stories priority options
-
-	//Look at all the priorities
-	if (priority_found == 0){
-		for (i=0; i<thread_all; i++){
-			unsigned int p= ThreadFly[i].priority;
-			if (p>PRIOVITY_LIMIT) p = PRIOVITY_LIMIT;
-			priorityVar[p] = 1;	// priority is existed
-		}
-		priority_found=1;
-	}
-
 	uint32_t c_time = system_getTime_ms();
 
-	for (priority = 0;priority<=PRIOVITY_LIMIT; priority++){
-		if (priorityVar[priority] != 1) continue;	// priority does not exist
-
-		for (i=0; i<thread_all; i++){
-			if ((ThreadFly[i].priority == priority) && 
-						(ThreadFly[i].enabled == 1) &&
-						(ThreadFly[i].t_startup < c_time) &&
-						((c_time - ThreadFly[i].t_previous_run) > ThreadFly[i].t_interval) &&
-						(ThreadFly[i].status >= 0)){
-				ThreadFly[i].t_previous_run = c_time;
-				return ThreadFly[i].name;
-			}
+	for (int i=0; i<THREAD_ALL; i++){
+		if ((ThreadFly[i].enabled == 1) &&
+					(ThreadFly[i].t_startup < c_time) &&
+					((c_time - ThreadFly[i].t_previous_run) > ThreadFly[i].t_interval)){
+			ThreadFly[i].t_previous_run = c_time;
+			return i;
 		}
 	}
 
@@ -177,7 +150,7 @@ void Battery_Read(void){
 	int calc_mV=((adc*3000)/0xFFF) * multiplier;
 	//if (voltage == 0) voltage = calc_mV;
 	//else
-		voltage += (calc_mV - voltage)*(0.5f);
+		voltage += (calc_mV - voltage)*(0.2f);	//LPF
 	batPercent = (voltage-undervoltage) * 100 / (4200-undervoltage);
 	if (batPercent > 100) batPercent = 100;
 }

@@ -1,14 +1,7 @@
 
 #include "stm32f1xx_hal.h"
 #include "params.h"
-
-#include "main.h" // for Printf
 #include "imu.h"
-
-//struct param_struct{
-//	char name[16];
-//};
-
 #include <mavlink.h>
 
 
@@ -19,155 +12,132 @@
 int readFLASH(uint32_t address, int *d);
 int writeFLASH(uint32_t address, int * d);
 
-#define PARAM_ALL (48)
-#define ADDR_ACC_X (200+0)
-#define ADDR_ACC_Y (200+1)
-#define ADDR_ACC_Z (200+2)
+struct param_struct t_param[PARAM_ALL] = {	
+	[PARAM_FLASH] = {"flash_params", {.FLOAT=0}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_P_KP] = {"p_kp", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_ORIENTATION] = {"p_orientation", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 
-struct param_struct t_param[PARAM_ALL] = {	{"flash_params", {.FLOAT=0}, MAV_PARAM_TYPE_REAL32},	//0		//MAV_PARAM_TYPE_INT8},
-											{"p_kp", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},		//1
-											{"p_orientation", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//2
+	[PARAM_PID_T_P] = {"pid_t_p", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_T_D] = {"pid_t_d", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_T_I] = {"pid_t_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_T_MUX_CHAN] = {"pid_t_muxChan", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},
 
-											{"pid_t_p", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},		//3
-											{"pid_t_d", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//4
-											{"pid_t_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//5
-											{"pid_t_muxChan", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},	//6
+	[PARAM_PID_P_P] = {"pid_p_p", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_P_D] = {"pid_p_d", {.FLOAT=500.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_P_I] = {"pid_p_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_P_MUX_CHAN] = {"pid_p_muxChan", {.FLOAT=50.0f}, MAV_PARAM_TYPE_REAL32},
 
-											{"pid_p_p", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},		//7
-											{"pid_p_d", {.FLOAT=500.0f}, MAV_PARAM_TYPE_REAL32},	//8
-											{"pid_p_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//9
-											{"pid_p_muxChan", {.FLOAT=50.0f}, MAV_PARAM_TYPE_REAL32},	//10
+	[PARAM_PID_R_P] = {"pid_r_p", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_R_D] = {"pid_r_d", {.FLOAT=500.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_R_I] = {"pid_r_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_R_MUX_CHAN] = {"pid_r_muxChan", {.FLOAT=50.0f}, MAV_PARAM_TYPE_REAL32},
 
-											{"pid_r_p", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},		//11
-											{"pid_r_d", {.FLOAT=500.0f}, MAV_PARAM_TYPE_REAL32},	//12
-											{"pid_r_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//13
-											{"pid_r_muxChan", {.FLOAT=50.0f}, MAV_PARAM_TYPE_REAL32},	//14
+	[PARAM_PID_Y_P] = {"pid_y_p", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_Y_D] = {"pid_y_d", {.FLOAT=500.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_Y_I] = {"pid_y_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_Y_MUX_CHAN] = {"pid_y_muxChan", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},
 
-											{"pid_y_p", {.FLOAT=10.0f}, MAV_PARAM_TYPE_REAL32},	//15
-											{"pid_y_d", {.FLOAT=500.0f}, MAV_PARAM_TYPE_REAL32},	//16
-											{"pid_y_i", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//17
-											{"pid_y_muxChan", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},	//18
+	[PARAM_P_KP_ARM] = {"p_kp_arm", {.FLOAT=0.5f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_P_KI] = {"p_ki", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 
-											{"p_kp_arm", {.FLOAT=0.5f}, MAV_PARAM_TYPE_REAL32},		//19
-											{"p_ki", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},			//20
+	[PARAM_M1_ACTION] = {"m1_action", {.FLOAT=149.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M1_MIN] = {"m1_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M1_MAX] = {"m1_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M1_MUX] = {"m1_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M1_INIT] = {"m1_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M1_OFFSET] = {"m1_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 
-//											{"m1_action", {.FLOAT=1.0f}, MAV_PARAM_TYPE_REAL32},//21
-											{"m1_action", {.FLOAT=149.0f}, MAV_PARAM_TYPE_REAL32},//21
-											{"m1_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//22
-											{"m1_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//23
-											{"m1_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//24
-											{"m1_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//25
-											{"m1_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//26
+	[PARAM_M2_ACTION] = {"m2_action", {.FLOAT=89.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M2_MIN] = {"m2_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M2_MAX] = {"m2_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M2_MUX] = {"m2_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M2_INIT] = {"m2_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M2_OFFSET] = {"m2_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 
-											{"m2_action", {.FLOAT=89.0f}, MAV_PARAM_TYPE_REAL32},//27
-											{"m2_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//28
-											{"m2_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//29
-											{"m2_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//30
-											{"m2_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//31
-											{"m2_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//32
+	[PARAM_M3_ACTION] = {"m3_action", {.FLOAT=169.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M3_MIN] = {"m3_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M3_MAX] = {"m3_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M3_MUX] = {"m3_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M3_INIT] = {"m3_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M3_OFFSET] = {"m3_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 
-											{"m3_action", {.FLOAT=169.0f}, MAV_PARAM_TYPE_REAL32},//33
-											{"m3_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//34
-											{"m3_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//35
-											{"m3_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//36
-											{"m3_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//37
-											{"m3_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//38
+	[PARAM_M4_ACTION] = {"m4_action", {.FLOAT=101.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M4_MIN] = {"m4_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M4_MAX] = {"m4_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M4_MUX] = {"m4_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M4_INIT] = {"m4_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_M4_OFFSET] = {"m4_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 
-											{"m4_action", {.FLOAT=101.0f}, MAV_PARAM_TYPE_REAL32},//39
-											{"m4_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//40
-											{"m4_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},//41
-											{"m4_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//42
-											{"m4_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//43
-											{"m4_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//44
-
-											{"alt_max", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},//44
-											{"pid_t_iLimit", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},	//6
-											{"pid_t_imin", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},		//5
-
-										};
-
+	[ALT_MAX] = {"alt_max", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_T_I_LIMIT] = {"pid_t_iLimit", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_PID_T_I_MIN] = {"pid_t_imin", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+	[PARAM_P_MODE] = {"p_mode", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
+};
 
 void params_save(void){
 	int d[FLASH_PAGE_SIZE/4];
-	int i=0;
-	for (i=0;i<PARAM_ALL;i++) *(float *)&d[i] = t_param[i].param_value.FLOAT;
-	imu_AccOffset_get((float *)&d[ADDR_ACC_X], (float *)&d[ADDR_ACC_Y], (float *)&d[ADDR_ACC_Z]);
-	Printf("acc save %d, %d, %d\n\r", (int)((*(float*)&d[ADDR_ACC_X])*1000.0f), (int)((*(float*)&d[ADDR_ACC_Y])*1000.0f), (int)((*(float*)&d[ADDR_ACC_Z])*1000.0f));
+	for (int i=0;i<PARAM_ALL;i++) *(float *)&d[i] = t_param[i].param_value.FLOAT;
+	imu_AccOffset_get((float *)&d[MEM_CLB_AX], (float *)&d[MEM_CLB_AY], (float *)&d[MEM_CLB_AZ]);
+	// Printf("acc save %d, %d, %d\n\r", (int)((*(float*)&d[ADDR_ACC_X])*1000.0f), (int)((*(float*)&d[ADDR_ACC_Y])*1000.0f), (int)((*(float*)&d[ADDR_ACC_Z])*1000.0f));
 	writeFLASH(FLASH_ADDRESS_MYDATA, d);
 }
 
 void params_restore(void){
 	int d[FLASH_PAGE_SIZE/4];
 	readFLASH(FLASH_ADDRESS_MYDATA, d);
-	int i=0;
 	if (*(float *)&d[0] == 0) {Printf("params default!\n\r"); return;}// if ndef params
-	else
-		for (i=0;i<PARAM_ALL;i++) t_param[i].param_value.FLOAT = *(float *)&d[i];
-	Printf("acc read %d, %d, %d\n\r", (int)((*(float*)&d[ADDR_ACC_X])*1000.0f), (int)((*(float*)&d[ADDR_ACC_Y])*1000.0f), (int)((*(float*)&d[ADDR_ACC_Z])*1000.0f));
-	imu_AccOffset_set(*(float*)&d[ADDR_ACC_X], *(float*)&d[ADDR_ACC_Y], *(float*)&d[ADDR_ACC_Z]);
+	
+	for (int i=0;i<PARAM_ALL;i++) t_param[i].param_value.FLOAT = *(float *)&d[i];
+	// Printf("acc read %d, %d, %d\n\r", (int)((*(float*)&d[ADDR_ACC_X])*1000.0f), (int)((*(float*)&d[ADDR_ACC_Y])*1000.0f), (int)((*(float*)&d[ADDR_ACC_Z])*1000.0f));
+	imu_AccOffset_set(*(float*)&d[MEM_CLB_AX], *(float*)&d[MEM_CLB_AY], *(float*)&d[MEM_CLB_AZ]);
 }
 
-
-float params_GetMemValue(int n){
-	//if ((1 <= n) && (n < PARAM_ALL))
-		return t_param[n].param_value.FLOAT;
-	//return 0.0f;
+float params_GetParamValue(unsigned int n){
+	if (n >= PARAM_ALL) return 0.0f;
+	return t_param[n].param_value.FLOAT;
 }
-
 
 int params_getSize(void){
 	return PARAM_ALL;
 }
-int params_setValue(int n, union param_value value, int type){
-	int t = n;
-	if ((t<0) || (t>=PARAM_ALL)) return HAL_ERROR;
-	if (type == MAV_PARAM_TYPE_REAL32) t_param[t].param_value.FLOAT = value.FLOAT;
-	else if (type == MAV_PARAM_TYPE_INT8) t_param[t].param_value.INT = (int)value.INT;
-	else t_param[t].param_value.FLOAT = value.FLOAT;
+int params_setValue(unsigned int n, union param_value value, int type){
+	if (n >= PARAM_ALL) return HAL_ERROR;
+	if (type == MAV_PARAM_TYPE_REAL32) t_param[n].param_value.FLOAT = value.FLOAT;
+	else if (type == MAV_PARAM_TYPE_INT8) t_param[n].param_value.INT = (int)value.INT;
+	else t_param[n].param_value.FLOAT = value.FLOAT;
 
-	//Printf("param set %d, %d\n\r", n, (int) value.FLOAT);
 	if (n == 0) params_save();
 	return HAL_OK;
 }
-int params_getValue(int n, union param_value * value, int type){
-	int t = n;
-	if ((t<0) || (t>=PARAM_ALL)) return HAL_ERROR;
-	if (type == MAV_PARAM_TYPE_REAL32) value->FLOAT = t_param[t].param_value.FLOAT;
-	else if (type == MAV_PARAM_TYPE_INT8) value->FLOAT = t_param[t].param_value.INT;
-	else  value->FLOAT = t_param[t].param_value.FLOAT;
+int params_getValue(unsigned int n, union param_value * value, int type){
+	if (n >= PARAM_ALL) return HAL_ERROR;
+	if (type == MAV_PARAM_TYPE_REAL32) value->FLOAT = t_param[n].param_value.FLOAT;
+	else if (type == MAV_PARAM_TYPE_INT8) value->FLOAT = t_param[n].param_value.INT;
+	else  value->FLOAT = t_param[n].param_value.FLOAT;
 	return HAL_OK;
 }
-int params_getParam(int n, struct param_struct * param){
-	int t = n;
-	if ((t<0) || (t>=PARAM_ALL)) return HAL_ERROR;
-	*param = t_param[t];
+int params_getParam(unsigned int n, struct param_struct * param){
+	if (n >= PARAM_ALL) return HAL_ERROR;
+	*param = t_param[n];
 	return HAL_OK;
 }
 int params_getIndexById(char * id){
 	int i=-1;// flag of existence param
 	for (i=0;i<PARAM_ALL; i++){									// find rx param in param base
 		if (strcmp(id, t_param[i].param_id)==0){				// if rx param == param base
-			//Printf("strcmp %s,  %d \n\r", t_param[i].param_id, i);
 			return i;
 		}
 	}
 	return -1;
 }
 
-
-
 int readFLASH(uint32_t address, int *d){
-
 	int result = HAL_OK;
 
 	result = HAL_FLASH_Unlock();
 	//if (result != HAL_OK) {return result;}
-	Printf("Read HAL_FLASH_Unlock\n\r");
-	int i=0;
-	for (i=0;i<(FLASH_PAGE_SIZE/4);i++) d[i] = *(int *)(address+ i*4);
+	for (int i=0;i<(FLASH_PAGE_SIZE/4);i++) d[i] = *(int *)(address+ i*4);
 	result = HAL_FLASH_Lock();
-	Printf("Read HAL_FLASH_Lock\n\r");
-	if (result != HAL_OK) {return result;}
 
 	return result;
 }
@@ -187,21 +157,14 @@ int writeFLASH(uint32_t address, int * d){
 	uint32_t PageError = 0;
 
 	HAL_FLASHEx_Erase(&pEraseInit, &PageError);
-	if (result != HAL_OK) {return result;}
 
-	int i=0;
-
-	for (i=0;i<(FLASH_PAGE_SIZE/4);i++){
+	for (int i=0;(i<(FLASH_PAGE_SIZE/4) || (result == HAL_OK));i++){
 		result = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, address+i*4, *(int *)&d[i]);
-		if (result != HAL_OK) { return result;}
 	}
-
 	result = HAL_FLASH_Lock();
-	if (result != HAL_OK) {return result;}
 
 	return result;
 }
-
 
 void Clear_Bootloader_Key(void){
 	uint32_t buf[FLASH_PAGE_SIZE/4];

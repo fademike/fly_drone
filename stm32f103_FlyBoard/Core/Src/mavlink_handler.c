@@ -6,6 +6,8 @@
 #include "imu.h"
 #include "ModemControl.h"
 #include "MotorControl.h"
+#include "mavlink_handler.h"
+#include "MahonyAHRS.h"
 #include "system.h"
 
 #define BUFFER_LENGTH 2041 // minimum buffer size that can be used with qnx (I don't know why)
@@ -59,27 +61,21 @@ void mavlink_send_statustext(char * text){
 
 void mavlink_send_param(int n){
 	struct param_struct p;
-	int find_fl = 0;
-	if (params_getParam(n, &p) == 0) find_fl = 1;	// if param exist
-
 	mavlink_message_t msg;
-	// if param exist - set param to msg
-	if (find_fl) {
+	
+	if (params_getParam(n, &p) == 0){ 	// if param exist - set param to msg
 		float fvalue = 0;
-		if ((p.param_type == MAV_PARAM_TYPE_REAL32) || p.param_type == MAV_PARAM_TYPE_REAL64)
-			fvalue = p.param_value.FLOAT;
+		if ((p.param_type == MAV_PARAM_TYPE_REAL32) || p.param_type == MAV_PARAM_TYPE_REAL64) fvalue = p.param_value.FLOAT;
 		else fvalue = (float)p.param_value.INT;
 
 		mavlink_msg_param_value_pack(1, MAV_COMP_ID_AUTOPILOT1, &msg, p.param_id, fvalue, p.param_type, params_getSize(), n);
+		if (MAV_DEBUG) Printf("param send ans %d: %d\n\r", n, (int)p.param_value.FLOAT);
 	}
-	// if param none - set none param
-	else mavlink_msg_param_value_pack(1, MAV_COMP_ID_AUTOPILOT1, &msg, NULL, 0, MAV_PARAM_TYPE_REAL32, params_getSize(), -1);
-
+	else { // if param none - set none (-1) param
+		if (MAV_DEBUG) Printf("param send ans -1 (%d)\n\r", n);
+		mavlink_msg_param_value_pack(1, MAV_COMP_ID_AUTOPILOT1, &msg, NULL, 0, MAV_PARAM_TYPE_REAL32, params_getSize(), -1);
+	}
 	mavlink_send_msg(&msg);
-
-	// for debug
-	if (find_fl == 1) {if (MAV_DEBUG) Printf("param send ans %d: %d\n\r", n, (int)p.param_value.FLOAT);}
-	else if (MAV_DEBUG) Printf("param send ans -1 (%d)\n\r", n);
 }
 
 void mavlink_send_heartbeat(void){
@@ -135,7 +131,7 @@ void mavlink_send_quaternion(void){
 	int timer_us = system_getTime_ms()*1000;
 	const float zeroQuat[] = {0, 0, 0, 0};
 	float q[4];
-	MahonyGetQuat(&q);
+	MahonyGetQuat(q);
 
 	mavlink_msg_attitude_quaternion_pack(1, MAV_COMP_ID_AUTOPILOT1, &msg,
 		timer_us, q[0], q[1], q[2], q[3], 0, 0, 0, zeroQuat);
@@ -170,10 +166,10 @@ void mavlink_loop(void){
 	if (mav_cmd_list>=0){
 		for (; mav_cmd_list<params_getSize(); mav_cmd_list++){
 			int queue = ModemControl_SendPacket_GetQueue();
-			//int size = ModemControl_SendPacket_SizeQueue();
-			if (queue != 0) return;	// if no free cb
+			int size = ModemControl_SendPacket_SizeQueue();
+			if (queue > (size/2)) return;	// if half of the queue is occupied
+			// if (queue != 0) return;	// if no free cb
 //			if (queue < 0) return;			// is full tx buf
-//			if ((queue-2) > size) return;
 			mavlink_send_param(mav_cmd_list);
 			if (MAV_DEBUG) Printf("send param %d\n\r", mav_cmd_list);
 		}
@@ -197,17 +193,17 @@ void mavlink_receive(char rxdata){
 		// Packet received
 		switch (msg.msgid){
 			case MAVLINK_MSG_ID_MANUAL_CONTROL:
-				chan[0] = mavlink_msg_manual_control_get_z(&msg)+1000; // ...get_z (0...1000)
-				chan[1] = -mavlink_msg_manual_control_get_r(&msg)/2+1500; // ...get_r (-1000...1000)
-				chan[2] = mavlink_msg_manual_control_get_x(&msg)/2+1500; // ...get_x (-1000...1000)
-				chan[3] = -mavlink_msg_manual_control_get_y(&msg)/2+1500; // ...get_y (-1000...1000)
+				chan[THROTTLE] = mavlink_msg_manual_control_get_z(&msg)+1000; // ...get_z (0...1000)
+				chan[YAW] = -mavlink_msg_manual_control_get_r(&msg)/2+1500; // ...get_r (-1000...1000)
+				chan[PITCH] = mavlink_msg_manual_control_get_x(&msg)/2+1500; // ...get_x (-1000...1000)
+				chan[ROLL] = -mavlink_msg_manual_control_get_y(&msg)/2+1500; // ...get_y (-1000...1000)
 				chan_UpdateTime_ms = system_getTime_ms();
 				break;
 			case MAVLINK_MSG_ID_RC_CHANNELS_OVERRIDE:
-				chan[0] = mavlink_msg_rc_channels_override_get_chan1_raw(&msg);	// 1000-2000 //Throll
-				chan[1] = mavlink_msg_rc_channels_override_get_chan2_raw(&msg);	// 1500+-500 //Yaw
-				chan[2] = mavlink_msg_rc_channels_override_get_chan3_raw(&msg);	// 1500+-500 //Pitch
-				chan[3] = mavlink_msg_rc_channels_override_get_chan4_raw(&msg);	// 1500+-500 //Roll
+				chan[THROTTLE] = mavlink_msg_rc_channels_override_get_chan1_raw(&msg);	// 1000-2000 //Throll
+				chan[YAW] = mavlink_msg_rc_channels_override_get_chan2_raw(&msg);	// 1500+-500 //Yaw
+				chan[PITCH] = mavlink_msg_rc_channels_override_get_chan3_raw(&msg);	// 1500+-500 //Pitch
+				chan[ROLL] = mavlink_msg_rc_channels_override_get_chan4_raw(&msg);	// 1500+-500 //Roll
 				chan[4] = mavlink_msg_rc_channels_override_get_chan5_raw(&msg);	// 1500+-500
 
 				chan_UpdateTime_ms = system_getTime_ms();

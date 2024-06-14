@@ -844,13 +844,15 @@ int readRangeContinuousMillimeters( statInfo_t_VL53L0X *extraStats, uint16_t * d
 	  while ((readReg(RESULT_INTERRUPT_STATUS) & 0x07) == 0) {
 		  return 0;
 	  }
-
+  uint8_t status;
 
   if( extraStats == 0 ){														// 328us delay (i2c_clk = 400kHz)
 	// assumptions: Linearity Corrective Gain is 1000 (default);
 	// fractional ranging is not enabled
 	temp = readReg16Bit(RESULT_RANGE_STATUS + 10);
 	temp = (((temp&0xFF)<<8) | ((temp&0xFF00)>>8));
+	status = readReg(RESULT_RANGE_STATUS)>>3;
+
   } else {																		//570us delay (i2c_clk = 400kHz)
 	// Register map starting at 0x14
 	//     0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
@@ -872,7 +874,7 @@ int readRangeContinuousMillimeters( statInfo_t_VL53L0X *extraStats, uint16_t * d
 	extraStats->rawDistance = temp;
   }
 
-  if (temp > 2000) ret = 0;
+  if (status != 11) ret = 0;
 
   *data = temp;
   writeReg(SYSTEM_INTERRUPT_CLEAR, 0x01);

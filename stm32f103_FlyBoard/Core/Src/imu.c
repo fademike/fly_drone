@@ -49,12 +49,14 @@ vector vector_rearranging(vector axes, int * val);
 
 vector imuAngle = {.angle.pitch=0,.angle.roll=0,.angle.yaw=0};
 int vl53_alt = -1;
+int vl53_alt_dAlt = -1;	// chaned value altitude
 
 float imu_getPitch(void){return imuAngle.angle.pitch;}
 float imu_getRoll(void){return imuAngle.angle.roll;}
 float imu_getYaw(void){return imuAngle.angle.yaw;}
 
 int imu_getAlt(void){return vl53_alt;}
+int imu_getAltCanged(void){return vl53_alt_dAlt;}
 
 vector gyro = {.axis.x=0,.axis.y=0,.axis.z=0};
 vector gyro_offs = {.axis.x=0,.axis.y=0,.axis.z=0};
@@ -81,13 +83,11 @@ int imu_AccCalibrate_getStatus(void){	// -1 need to calibrate, 0 finish of calib
 void imu_AccCalibrate_run(void){
 	statusCalibrateAcc = -1;
 }
-//void imu_AccOffset_get(int GYROorACC, float * ox, float * oy, float * oz){
 void imu_AccOffset_get(float * ox, float * oy, float * oz){
 	*ox = acc_offs.axis.x;
 	*oy = acc_offs.axis.y;
 	*oz = acc_offs.axis.z;
 }
-//void imu_AccOffset_set(int GYROorACC, float ox, float oy, float oz){
 void imu_AccOffset_set(float ox, float oy, float oz){
 	Printf("acc set %d, %d, %d\n\r", (int)(ox*1000.0f), (int)(oy*1000.0f), (int)(oz*1000.0f));
 	acc_offs.axis.x = ox;
@@ -104,7 +104,7 @@ int imu_init(void){
 void UpdateOrientation(int * dat_r, float * dat_a_sig, float * dat_g_sig){
 	
 	static float orientation = 0;
-	float param_orientation = params_GetMemValue(PARAM_ORIENTATION);
+	float param_orientation = params_GetParamValue(PARAM_ORIENTATION);
 
 	// 0, 24 - norm
 	// 60 - up
@@ -144,6 +144,25 @@ void UpdateOrientation(int * dat_r, float * dat_a_sig, float * dat_g_sig){
 	}
 }
 
+void Update_altitude(void){
+	if (vl53_getStatus() != 0) {vl53_alt = -1; initVL53L0X(1); return;}	// if during the initialization process -> init continue
+	// if initialized
+	uint16_t d;
+	static uint32_t alt_timout_cnt = 0;
+	uint32_t ctime = system_getTime_ms();
+	if(readRangeContinuousMillimeters(0, &d)) {
+		vl53_alt_dAlt = d-vl53_alt;
+		vl53_alt = d;
+		alt_timout_cnt = ctime;
+	}
+	else {
+		int dt = ctime - alt_timout_cnt;
+		if (dt > 70) {
+			vl53_alt = 2000;
+			// alt_timout_cnt = ctime;
+		}
+	}
+}
 
 void imu_loop(void){
 	static uint64_t l_time_us = 0;
@@ -151,24 +170,18 @@ void imu_loop(void){
 	if (status != 0 ){imu_init(); return ;}
 
 	// reading the altitude
-	if ((int)params_GetMemValue(ALT_MAX) > 0) {
-		if (vl53_getStatus() != 0) {vl53_alt = -1; initVL53L0X(1);}	// if during the initialization process -> init continue
-		else {					// if initialized
-			  uint16_t d;
-			  if(readRangeContinuousMillimeters(0, &d)) vl53_alt = d;
-		}
-	}
+	if ((int)params_GetParamValue(ALT_MAX) > 0) Update_altitude();
 
 	vector EstA, EstG;
 	short t;
 	int ret = MPU_GetDataFloat(EstA.value, EstG.value, &t);
-	if (ret<0) {imu_init(); return ;}
+	if (ret != 0) {imu_init(); return;}
 
 	uint64_t c_time_us = system_getTime_us();
 
 	float dt = (c_time_us - l_time_us);
-	float kp = params_GetMemValue(PARAM_P_KP);
-	float ki = params_GetMemValue(PARAM_P_KI);
+	float kp = params_GetParamValue(PARAM_P_KP);
+	float ki = params_GetParamValue(PARAM_P_KI);
 
 	if (l_time_us  == 0 ) {l_time_us = c_time_us; return;} //first cycle. when haven't l_time.
 	l_time_us = c_time_us;
@@ -181,25 +194,19 @@ void imu_loop(void){
 	acc = vector_addVector(vector_muxConst(EstA, lsb2g_acc), acc_offs);
 	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) imu_accCalibrate(); 	// calibrate acc, if motor not launched, if necessary
 
-	// if (statusCalibrateGyro < 0) { // TODO need test.. maybe
-	// 	imuAngle = vector_setConst(imuAngle, 0);	// reset values
-	// 	MotorControl_loop();
-	// 	return;
-	// }
+	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) kp = params_GetParamValue(PARAM_P_KP);
+	else kp = params_GetParamValue(PARAM_P_KP_ARM);
 
-	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) kp = params_GetMemValue(PARAM_P_KP);
-	else kp = params_GetMemValue(PARAM_P_KP_ARM);
-
-	// TODO heavy 
+	// TODO heavy while launched motors
 	// #define sq(x) ((x)*(x))
 	// 
 	// if (fabs(sqrt(sq(acc.axis.x)+sq(acc.axis.y)+sq(acc.axis.z))-1.0f)>0.1){	 //if heavy (more than 1g +-0.1g)
 	// 	HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_SET);
-	// 	params_GetMemValue(PARAM_FL_KP_ARM);
+	// 	params_GetParamValue(PARAM_FL_KP_ARM);
 	// }
 	// else {
 	// 	HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET);
-	// 	params_GetMemValue(PARAM_FL_KP);
+	// 	params_GetParamValue(PARAM_FL_KP);
 	// }
 
 	MahonyUpdateVariables(dt*1e-6f, kp, ki);
@@ -216,13 +223,9 @@ void imu_loop(void){
 	vector a = vector_rearranging(vector_muxVector(acc, dat_a_sig), dat_r);
 
 	MahonyAHRSupdateIMU(g.axis.x, g.axis.y, g.axis.z, a.axis.x, a.axis.y, a.axis.z);
-
-	// float yaw;
-	// static float yaw_free = 0;
 	MahonyGetAngles(&imuAngle.angle.pitch, &imuAngle.angle.roll, &imuAngle.angle.yaw);
 
 	imuAngle = vector_muxConst(imuAngle, 180.0/M_PI); // convert rad to deg
-
 
 	MotorControl_loop();
 }
@@ -234,9 +237,9 @@ void imu_loop(void){
 void imu_autoCalibrateByNoize(int stop){
 	static uint32_t l_time = 0;
 	uint32_t time = system_getTime_ms();
-	static vector average = {0,0,0}; 	//for get average data
-	static vector min = {LIMIT,LIMIT,LIMIT}, max = {-LIMIT,-LIMIT,-LIMIT};
-	static vector diff_last = {2*LIMIT,2*LIMIT,2*LIMIT};	// save the best result is in terms of noise
+	static vector average = {.axis.x=0,.axis.y=0,.axis.z=0}; 	//for get average data
+	static vector min = {.axis.x=LIMIT,.axis.y=LIMIT,.axis.z=LIMIT}, max = {.axis.x=-LIMIT,.axis.y=-LIMIT,.axis.z=-LIMIT};
+	static vector diff_last = {.axis.x=2*LIMIT,.axis.y=2*LIMIT,.axis.z=2*LIMIT};	// save the best result is in terms of noise
 	//
 	static int nStop = 0;
 	static uint32_t cnt = 0;	// count new data
@@ -272,7 +275,6 @@ void imu_autoCalibrateByNoize(int stop){
 			diff_last = diff_res;
 			statusCalibrateGyro = 0;
 		}
-
 		// reset values:
 		nStop = 0;
 		cnt = 0;

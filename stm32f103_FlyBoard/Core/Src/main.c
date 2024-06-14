@@ -194,9 +194,6 @@ int main(void)
   HAL_TIM_Base_Start(&htim1); // timer for us calculate
   HAL_TIM_Base_Start(&htim2); // reserv for additional motors
   HAL_TIM_Base_Start(&htim3); // timer for motor pwm
-  // HAL_TIM_Base_Start(&htim4);
-
-  // __HAL_TIM_ENABLE_IT(&htim4, TIM_IT_UPDATE);		//5ms irq timer
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2); // for additional motors
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4); // for additional motors
@@ -210,12 +207,10 @@ int main(void)
 
   HAL_IWDG_Refresh(&hiwdg);
 
-  //__HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);	// Enable Interrupt			//TODO
-
   MotorControl_init();
 
-  if (imu_init() < 0) while(1){};
-  if (ModemControl_init() < 0) {Printf("MC_init false\n\r"); while(1);}
+  if (imu_init() < 0) system_reboot();
+  if (ModemControl_init() < 0) {Printf("MC_init false\n\r"); system_reboot();};
 
   HAL_IWDG_Refresh(&hiwdg);
 
@@ -232,43 +227,40 @@ int main(void)
 	  int thread = Thread_Cycle();
 
 	  switch (thread){
-	  	  case(thread_IMU_loop):
+	  	  case(THREAD_IMU_LOOP):
 	  			imu_loop();
 		  	  break;
-	  	  case(thread_test):
+	  	  case(THREAD_TEST):
 
 				  HAL_GPIO_TogglePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin);
-          if (MotorControl_isArmed()) system_changeThread(thread_test, THREAD_T_INTERVAL, 100);
-          else system_changeThread(thread_test, THREAD_T_INTERVAL, 500);  //500
+          if (MotorControl_isArmed()) system_changeThread(THREAD_TEST, THREAD_T_INTERVAL, 100);
+          else system_changeThread(THREAD_TEST, THREAD_T_INTERVAL, 500);  //500
 
-          int alt_max = (int)params_GetMemValue(ALT_MAX);
-          if ((alt_max > 0) && (!MotorControl_isArmed())){
-            int dist = imu_getAlt();
-            int st = vl53_getStatus();
-            // Printf("dist = %d, st=%d\n\r", dist, st);
-            // Printf("%d,%d\n\r", dist, st);
-          }
+          // int alt_max = (int)params_GetParamValue(ALT_MAX);
+          // if ((alt_max > 0) && (!MotorControl_isArmed())){
+          //   int dist = imu_getAlt();
+          //   Printf("dist = %d\n\r", dist);
+          // }
 	  			break;
-	  	  case(thread_ModemControl):
+	  	  case(THREAD_MODEMCONTROL):
           mavlink_loop();
           if (ModemControl_Loop() == 1){	// if rx data pack
             uint8_t buff_pack[64];
             int32_t rx_len = ModemControl_GetPacket(buff_pack);
-            mavlink_receive_pack(buff_pack, rx_len);
+            mavlink_receive_pack(buff_pack, rx_len);  // send packet to parse
           }
 	  			break;
-	  	  case(thread_MAV_send_attitude):
+	  	  case(THREAD_MAV_SEND_ATTITUDE):
 				  mavlink_send_attitude();
 	  			break;
-	  	  case(thread_MAV_send_status):
+	  	  case(THREAD_MAV_SEND_STATUS):
           mavlink_send_heartbeat();
           mavlink_send_status();
 	  			break;
-	  	  case(thread_ADC):
+	  	  case(THREAD_ADC):
 				  Battery_Read();
 	  			break;
 	  }
-
 
     /* USER CODE END WHILE */
 

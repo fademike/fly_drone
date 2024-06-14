@@ -4,6 +4,8 @@
 
 #include <stdint.h>
 
+// circular buffer
+
 #define CB_USE_LEN
 
 enum {

@@ -2,13 +2,18 @@
 enum {
 	AXIS_X = 0,
 	AXIS_Y = 1,
-	AXIS_Z = 2
+	AXIS_Z = 2,
+	AXES_ALL = 3,
 };
 enum {
 	THROTTLE = 0,
 	PITCH = 1,
 	ROLL = 2,
-	YAW = 3
+	YAW = 3,
+};
+enum {
+	MODE_FLY = 0,
+	MODE_CAR = 1,
 };
 //enum {
 //	ANGEL_PITCH = 0,
@@ -34,4 +39,5 @@ float imu_getPitch(void);
 float imu_getRoll(void);
 float imu_getYaw(void);
 int imu_getAlt(void);
+int imu_getAltCanged(void);
 

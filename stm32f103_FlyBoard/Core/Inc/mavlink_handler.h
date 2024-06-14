@@ -10,7 +10,7 @@ void mavlink_loop(void);
 void mavlink_receive_pack(char * rxdata, int len);
 void mavlink_receive(char rxdata);
 
-
+void mavlink_send_heartbeat(void);
 void mavlink_send_status(void);
 void mavlink_send_attitude(void);
 void mavlink_send_battery_status(void);

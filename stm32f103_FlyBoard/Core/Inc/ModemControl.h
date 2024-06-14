@@ -70,6 +70,9 @@ int32_t ModemControl_Loop(void);	// return 1 when rx data
 int32_t ModemControl_ReadOnly(void);
 
 int32_t ModemControl_SendPacket_GetQueue(void);
+int32_t ModemControl_SendPacket_SizeQueue(void);
+
+
 void ModemControl_SendPacket(uint8_t * buff, uint16_t len);
 void ModemControl_SendSymbol(uint8_t buff);
 

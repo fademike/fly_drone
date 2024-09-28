@@ -120,10 +120,10 @@ void Write_Bootloader_Key(uint32_t key);
 uint32_t Read_Bootloader_Key(void);
 
 // Bootloader key configuration
-#define BOOTLOADER_KEY_START_ADDRESS                             (uint32_t)0x08002C00
+#define BOOTLOADER_KEY_START_ADDRESS                             (uint32_t)0x08003000
 #define BOOTLOADER_KEY_VALUE                                     0xAAAA5555
 // Flash configuration
-#define MAIN_PROGRAM_START_ADDRESS                               (uint32_t)0x08003000
+#define MAIN_PROGRAM_START_ADDRESS                               (uint32_t)0x08003400
 //#define FLASH_PAGE_SIZE                                          1024
 
 int program_state = 0;

@@ -39,5 +39,5 @@ float imu_getPitch(void);
 float imu_getRoll(void);
 float imu_getYaw(void);
 int imu_getAlt(void);
-int imu_getAltCanged(void);
+
 

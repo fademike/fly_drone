@@ -24,8 +24,7 @@
 
 #include <string.h>		// for strlen
 #include <stdio.h>		// for sprintf
-
-#include <math.h>		// for abs and other
+#include <math.h>		  // for abs and other
 
 #include "radio_config_Si4463.h"
 
@@ -94,15 +93,15 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN 0 */
 
 void test_set(int set){
-	if (set !=0) HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_SET);
-		else HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET);
+  if (set !=0) HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_SET);
+  else HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET);
 
 }
 
 volatile uint32_t tick_ms = 0;
 
 uint32_t Get_tick(void){
-	return tick_ms;
+  return tick_ms;
 }
 
 // void HAL_IncTick(void)
@@ -110,34 +109,35 @@ uint32_t Get_tick(void){
 //   uwTick += uwTickFreq;
 // }
 
-void SYS_myTick(void)	// IRQ 1 ms
+void SYS_myTick(void)  // IRQ 1 ms
 {
   tick_ms++;
-	//reset timer for calculate us
-	if (htim1.Instance != 0)__HAL_TIM_SET_COUNTER(&htim1, 0); // reset for timer counter us
+  //reset timer for calculate us
+  if (htim1.Instance != 0)__HAL_TIM_SET_COUNTER(&htim1, 0); // reset for timer counter us
 }
 
 //void Printf(const char *fmt, ...){
-//	HAL_UART_Transmit(&huart1, (unsigned char *)fmt, strlen(fmt), 500);
+//  HAL_UART_Transmit(&huart1, (unsigned char *)fmt, strlen(fmt), 500);
 //}
 #include <stdarg.h>
-
 void Printf(const char *fmt, ...)
 {
-	static char buf[256];
-	va_list lst;
-
-	va_start(lst, fmt);
-	vsprintf(buf, fmt, lst);
-	va_end(lst);
-
-	HAL_UART_Transmit(&huart1, (unsigned char *)buf, strlen(buf), 500);
-	if (ModemControl_getStatus()>=0) mavlink_send_statustext(buf);
+  char buf[256];
+  va_list lst;
+  va_start(lst, fmt);
+  vsprintf(buf, fmt, lst);
+  va_end(lst);
+  HAL_UART_Transmit(&huart1, (unsigned char *)buf, strlen(buf), 500);
+  if (ModemControl_getStatus()>=0) mavlink_send_statustext(buf);
 }
 
-void iwgd_refresh(void){
-	//HAL_IWDG_Refresh(&hiwdg);
-}
+// for printf. the size is larger on 2k
+// int _write(int fd, char* ptr, int len) {
+//     HAL_UART_Transmit(&huart1, (uint8_t *) ptr, len, HAL_MAX_DELAY);
+//   ptr[len] = '\0';
+//   if (ModemControl_getStatus()>=0) mavlink_send_statustext(ptr);
+//     return len;
+// }
 
 /* USER CODE END 0 */
 
@@ -180,10 +180,6 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  // while(1){
-  //   HAL_GPIO_TogglePin(PIN_TEST2_GPIO_Port, PIN_TEST2_Pin);
-  //   HAL_Delay(100);
-  // }
   Printf("...\n\r");
 
   __enable_irq();
@@ -212,8 +208,6 @@ int main(void)
   if (imu_init() < 0) system_reboot();
   if (ModemControl_init() < 0) {Printf("MC_init false\n\r"); system_reboot();};
 
-  HAL_IWDG_Refresh(&hiwdg);
-
   Printf("Started...\n\r");
 
   /* USER CODE END 2 */
@@ -222,17 +216,18 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_IWDG_Refresh(&hiwdg);
+    HAL_IWDG_Refresh(&hiwdg);
 
-	  int thread = Thread_Cycle();
+    int thread = Thread_Cycle();
 
-	  switch (thread){
-	  	  case(THREAD_IMU_LOOP):
-	  			imu_loop();
-		  	  break;
-	  	  case(THREAD_TEST):
-
-				  HAL_GPIO_TogglePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin);
+    switch (thread){
+        case(THREAD_IMU_LOOP):
+          imu_loop();
+          break;
+        case(THREAD_TEST):
+          // static int ii=0;
+          // Printf("test %d\n\r", ii++);
+          HAL_GPIO_TogglePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin);
           if (MotorControl_isArmed()) system_changeThread(THREAD_TEST, THREAD_T_INTERVAL, 100);
           else system_changeThread(THREAD_TEST, THREAD_T_INTERVAL, 500);  //500
 
@@ -241,26 +236,26 @@ int main(void)
           //   int dist = imu_getAlt();
           //   Printf("dist = %d\n\r", dist);
           // }
-	  			break;
-	  	  case(THREAD_MODEMCONTROL):
+          break;
+        case(THREAD_MODEMCONTROL):
           mavlink_loop();
-          if (ModemControl_Loop() == 1){	// if rx data pack
+          if (ModemControl_Loop() == 1){  // if rx data pack
             uint8_t buff_pack[64];
             int32_t rx_len = ModemControl_GetPacket(buff_pack);
             mavlink_receive_pack(buff_pack, rx_len);  // send packet to parse
           }
-	  			break;
-	  	  case(THREAD_MAV_SEND_ATTITUDE):
-				  mavlink_send_attitude();
-	  			break;
-	  	  case(THREAD_MAV_SEND_STATUS):
+          break;
+        case(THREAD_MAV_SEND_ATTITUDE):
+          mavlink_send_attitude();
+          break;
+        case(THREAD_MAV_SEND_STATUS):
           mavlink_send_heartbeat();
           mavlink_send_status();
-	  			break;
-	  	  case(THREAD_ADC):
-				  Battery_Read();
-	  			break;
-	  }
+          break;
+        case(THREAD_ADC):
+          Battery_Read();
+          break;
+    }
 
     /* USER CODE END WHILE */
 

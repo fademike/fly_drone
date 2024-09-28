@@ -9,22 +9,8 @@
 #include "main.h"
 #include "stm32f1xx_hal.h"
 
-
-//#define SPI
-#define I2C
-
-#ifdef SPI
-extern SPI_HandleTypeDef hspi1;
-#endif
-#ifdef I2C
 #define hi2cN hi2c2
 extern I2C_HandleTypeDef hi2cN;
-
-// if i2c interface not disabled, then read/write uSD card by SPI will be not correct
-#define EN_I2C {}//if(CONFLICT)SET_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN) 		//disable I2c
-#define DIS_I2C {}//if(CONFLICT)CLEAR_BIT(RCC->APB1ENR, RCC_APB1ENR_I2C1EN) 	//disable I2c
-#endif
-
 
 #define DEVID (0x68<<1)
 #define MAGID (0x0C<<1)
@@ -34,41 +20,16 @@ extern I2C_HandleTypeDef hi2cN;
 #define READWRITE_CMD 0x80
 
 static int MPU_Read_Regs(uint8_t cmd, uint8_t * buf, uint8_t num){
-#ifdef SPI
-	HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_RESET);
 
-	uint8_t data = cmd | READWRITE_CMD;
-	if (HAL_SPI_Transmit(&hspi1, &data, 1, 100) != HAL_OK) return -1;
-	if (HAL_SPI_Receive(&hspi1, buf, num, 100) != HAL_OK) return -1;
-
-	HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_SET);
-	return HAL_OK;
-#endif
-#ifdef I2C
-	EN_I2C;
 	int res = HAL_I2C_Mem_Read(&hi2cN, (DEVID+1), cmd, 1, buf, num, 50);
-	DIS_I2C;
 	if (res != HAL_OK)return -1;
 	return HAL_OK;
-#endif
+
 }
 static int MPU_Write_Regs(uint8_t cmd, uint8_t * buf, uint8_t num){
-#ifdef SPI
-	HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_RESET);
-	uint8_t data = cmd;
-	if (HAL_SPI_Transmit(&hspi1, &data, 1, 100) != HAL_OK) return -1;
-	if (HAL_SPI_Transmit(&hspi1, buf, num, 100) != HAL_OK) return -1;
-	HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_SET);
-	return HAL_OK;
-#endif
-#ifdef I2C
-
-	EN_I2C;
 	int res = HAL_I2C_Mem_Write(&hi2cN, (DEVID+1), cmd, 1, buf, num, 50);
-	DIS_I2C;
 	if (res != HAL_OK)return -1;
 	return HAL_OK;
-#endif
 }
 
 uint8_t mpu_regs[4] = {-1, -1, -1, -1};
@@ -109,7 +70,6 @@ int MPU6050_Init(void)
 
 	mpu_reg_1C = 0x03<<3;	//ACCEL_FS_SEL[1:0]	// 2g (00), 4g (01), 8g (10), 16g (11)
 
-
 	mpu_regs[0] = mpu_reg_1A;
 	mpu_regs[1] = mpu_reg_1B;
 	mpu_regs[2] = mpu_reg_1C;
@@ -122,7 +82,6 @@ int MPU6050_Init(void)
 	if (mpu_regs[1] != mpu_reg_1B) return -4;
 	if (mpu_regs[2] != mpu_reg_1C) return -4;
 
-
 	Printf("MPU6050_init ok\n\r");
 
 	return 0;
@@ -130,14 +89,6 @@ int MPU6050_Init(void)
 int MPU9250_Init(void)
 {
 	uint8_t buf[1];
-
-
-//	//Set magnit
-//	buf[0] = 0x00;
-//	if (MPU_Write_Regs(0x6B, buf, 1) != HAL_OK) return -1;
-//	if (MPU_Write_Regs(0x6A, buf, 1) != HAL_OK) return -1;
-//	buf[0] = 0x02;
-//	if (MPU_Write_Regs(0x37, buf, 1) != HAL_OK) return -1;
 
 	uint8_t mpu_reg_1A;
 	uint8_t mpu_reg_1B;
@@ -172,11 +123,6 @@ int MPU9250_Init(void)
 
 
 	if (MPU_Write_Regs(0x1A, mpu_regs, 4) != HAL_OK) return -3;
-
-//	mpu_regs[0] = mpu_reg_1A;
-//	mpu_regs[1] = mpu_reg_1B;
-//	mpu_regs[2] = mpu_reg_1C;
-//	mpu_regs[3] = mpu_reg_1D;
 
 	Printf("MPU_init ok\n\r");
 	//aTxBuffer[0] = 100;//0x05<<0;

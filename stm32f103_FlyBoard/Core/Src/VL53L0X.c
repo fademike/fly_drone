@@ -7,6 +7,7 @@
 #include "stm32f1xx_hal.h" // Change it for your requirements.
 #include "string.h"
 #include "VL53L0X.h"
+#include "system.h"
 
 //---------------------------------------------------------
 // Local variables within this file (private)
@@ -145,16 +146,8 @@ bool initVL53L0X(bool io_2v8){
 	  bool spad_type_is_aperture;
 	  if (statusVL53L0X == 0) return 0;
 	if (statusVL53L0X>0){
-//		static int last_st = 0;
-//		static int cnt_last_st = 0;
-//
-//		if (last_st == statusVL53L0X) cnt_last_st++;
-//		else cnt_last_st = 0;
-//		last_st = statusVL53L0X;
-//		if (cnt_last_st > 10) statusVL53L0X = -1;
 
 		if (statusVL53L0X==1) goto init_pos_1;
-
 		else if (statusVL53L0X==1) goto init_pos_1;
 		else if (statusVL53L0X==(3)) goto init_pos_2;
 		else if (statusVL53L0X==(5)) goto init_pos_3;
@@ -1113,4 +1106,26 @@ bool performSingleRefCalibration(uint8_t vhv_init_byte)
   writeReg(SYSRANGE_START, 0x00);
 
   return true;
+}
+
+static int vl53_alt = 2000;
+
+#define ALT_TIMEOUT 70	// timeout for new data. ms
+
+int get_altitude(void){
+	if (vl53_getStatus() != 0) {vl53_alt = 2000; initVL53L0X(1); return vl53_alt;}	// if during the initialization process -> init continue
+	// if initialized
+	uint16_t d;
+	static uint32_t alt_time_data = 0;
+	uint32_t ctime = system_getTime_ms();
+	if(readRangeContinuousMillimeters(0, &d)) {
+		vl53_alt = d;
+		alt_time_data = ctime;
+	}
+	else {
+		if ((ctime - alt_time_data) > ALT_TIMEOUT) {
+			vl53_alt = 2000;
+		}
+	}
+  return vl53_alt;
 }

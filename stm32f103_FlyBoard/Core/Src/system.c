@@ -4,23 +4,20 @@
 #include "stm32f1xx.h"
 #include "main.h"
 
-#define STARTUP 2000
-
 extern TIM_HandleTypeDef htim1;
 
 // My threads
 struct ThreadFlyStruct {			// This is time settings for some processes
-	int enabled;		//enabled = 1 => on; else off
-	int t_startup;		//time to run
-	int t_interval;		//interval to run
-	int t_previous_run;		//interval to run
+	int enabled;		// enabled = 1 => on; else off
+	int t_interval;		// interval to run
+	int t_previous_run;	// previous launch time
 } 		ThreadFly[THREAD_ALL] = {	
-	[THREAD_IMU_LOOP] = 			{1, 	STARTUP, 		2, 		0},
-	[THREAD_MAV_SEND_ATTITUDE] = 	{1, 	STARTUP, 		100, 	0},
-	[THREAD_MAV_SEND_STATUS] = 		{1, 	STARTUP, 		1000, 	0},
-	[THREAD_ADC] = 					{1, 	0, 				10, 	0},
-	[THREAD_MODEMCONTROL] = 		{1, 	STARTUP, 		1, 		0},
-	[THREAD_TEST] = 				{1, 	STARTUP, 		500, 	0},
+	[THREAD_IMU_LOOP] = 			{1, 		2, 		0},
+	[THREAD_MAV_SEND_ATTITUDE] = 	{1, 		100, 	0},
+	[THREAD_MAV_SEND_STATUS] = 		{1, 		1000, 	0},
+	[THREAD_ADC] = 					{1, 		10, 	0},	// to read battery voltage
+	[THREAD_MODEMCONTROL] = 		{1, 		1, 		0},	// ModemControl loop
+	[THREAD_TEST] = 				{1, 		500, 	200},
 };
 
 
@@ -59,21 +56,23 @@ void system_reboot(void){
 	NVIC_SystemReset();
 }
 
-//poll all threads
-//execute the stream with the highest priority and exit
 int Thread_Cycle(void)
 {
-	uint32_t c_time = system_getTime_ms();
+	uint64_t c_time = (uint64_t)system_getTime_ms();
+	static uint64_t t_launch = 0;	// launch time
 
-	for (int i=0; i<THREAD_ALL; i++){
+	if (t_launch == 0) t_launch = c_time;	// if it's the first launch, then set the launch time
+	c_time -= t_launch;
+
+	static int i=0;
+	for (; i<THREAD_ALL; i++){
 		if ((ThreadFly[i].enabled == 1) &&
-					(ThreadFly[i].t_startup < c_time) &&
 					((c_time - ThreadFly[i].t_previous_run) > ThreadFly[i].t_interval)){
 			ThreadFly[i].t_previous_run = c_time;
 			return i;
 		}
 	}
-
+	i = 0;
 	return -1;
 }
 

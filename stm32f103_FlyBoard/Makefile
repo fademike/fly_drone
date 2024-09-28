@@ -202,10 +202,13 @@ clean:
 
 load: $(BUILD_DIR)/$(TARGET).bin
 	@echo load
-	~/Programs/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=swd -w key.bin 0x08002C00 --verify
-	~/Programs/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=swd -w  $< 0x08003000 --verify -rst
+	~/Programs/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=swd -w key.bin 0x08003000 --verify
+	~/Programs/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=swd -w  $< 0x08003400 --verify -rst
 	
-  
+debug: $(BUILD_DIR)/$(TARGET).bin
+	@echo debug
+	~/Programs/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=swd -w  $< 0x08000000 --verify -rst
+	
 #######################################
 # dependencies
 #######################################

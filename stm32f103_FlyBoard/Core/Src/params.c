@@ -3,10 +3,11 @@
 #include "params.h"
 #include "imu.h"
 #include <mavlink.h>
+#include "main.h"
 
 
 #define FLASH_ADDRESS_MYDATA (0x8000000+0x400*63)
-#define BOOTLOADER_KEY_START_ADDRESS                             (uint32_t)0x08002C00
+#define BOOTLOADER_KEY_START_ADDRESS                             (uint32_t)0x08003000
 //#define FLASH_PAGE_SIZE                                          1024
 
 int readFLASH(uint32_t address, int *d);
@@ -43,34 +44,24 @@ struct param_struct t_param[PARAM_ALL] = {
 	[PARAM_M1_ACTION] = {"m1_action", {.FLOAT=149.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M1_MIN] = {"m1_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M1_MAX] = {"m1_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},
-	[PARAM_M1_MUX] = {"m1_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
-	[PARAM_M1_INIT] = {"m1_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M1_OFFSET] = {"m1_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 
 	[PARAM_M2_ACTION] = {"m2_action", {.FLOAT=89.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M2_MIN] = {"m2_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M2_MAX] = {"m2_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},
-	[PARAM_M2_MUX] = {"m2_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
-	[PARAM_M2_INIT] = {"m2_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M2_OFFSET] = {"m2_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 
 	[PARAM_M3_ACTION] = {"m3_action", {.FLOAT=169.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M3_MIN] = {"m3_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M3_MAX] = {"m3_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},
-	[PARAM_M3_MUX] = {"m3_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
-	[PARAM_M3_INIT] = {"m3_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M3_OFFSET] = {"m3_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 
 	[PARAM_M4_ACTION] = {"m4_action", {.FLOAT=101.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M4_MIN] = {"m4_min", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M4_MAX] = {"m4_max", {.FLOAT=1000.0f}, MAV_PARAM_TYPE_REAL32},
-	[PARAM_M4_MUX] = {"m4_mux", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
-	[PARAM_M4_INIT] = {"m4_init", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_M4_OFFSET] = {"m4_offset", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 
 	[ALT_MAX] = {"alt_max", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
-	[PARAM_PID_T_I_LIMIT] = {"pid_t_iLimit", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
-	[PARAM_PID_T_I_MIN] = {"pid_t_imin", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 	[PARAM_P_MODE] = {"p_mode", {.FLOAT=0.0f}, MAV_PARAM_TYPE_REAL32},
 };
 

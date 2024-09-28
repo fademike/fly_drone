@@ -39,7 +39,6 @@ typedef union {
 } vector;
 
 vector vector_setConst(vector axes, float Value);
-vector vector_addConst(vector axes, float Value);
 vector vector_muxConst(vector axes, const float Value);
 vector vector_divConst(vector axes, const float Value);
 vector vector_muxVector(vector axes, const vector axes2);
@@ -48,15 +47,19 @@ vector vector_removeVector(vector axes, vector axes2);
 vector vector_rearranging(vector axes, int * val);
 
 vector imuAngle = {.angle.pitch=0,.angle.roll=0,.angle.yaw=0};
-int vl53_alt = -1;
-int vl53_alt_dAlt = -1;	// chaned value altitude
 
 float imu_getPitch(void){return imuAngle.angle.pitch;}
 float imu_getRoll(void){return imuAngle.angle.roll;}
 float imu_getYaw(void){return imuAngle.angle.yaw;}
-
-int imu_getAlt(void){return vl53_alt;}
-int imu_getAltCanged(void){return vl53_alt_dAlt;}
+int imu_getAlt(void){
+	int alt = 0;//get_altitude();
+	int alt_max = (int)params_GetParamValue(ALT_MAX);
+	if (alt_max > 0) {
+		alt = get_altitude();
+		alt *= 1000.0f/(float)alt_max;	//convert 
+	}
+	return alt;
+}
 
 vector gyro = {.axis.x=0,.axis.y=0,.axis.z=0};
 vector gyro_offs = {.axis.x=0,.axis.y=0,.axis.z=0};
@@ -144,47 +147,18 @@ void UpdateOrientation(int * dat_r, float * dat_a_sig, float * dat_g_sig){
 	}
 }
 
-void Update_altitude(void){
-	if (vl53_getStatus() != 0) {vl53_alt = -1; initVL53L0X(1); return;}	// if during the initialization process -> init continue
-	// if initialized
-	uint16_t d;
-	static uint32_t alt_timout_cnt = 0;
-	uint32_t ctime = system_getTime_ms();
-	if(readRangeContinuousMillimeters(0, &d)) {
-		vl53_alt_dAlt = d-vl53_alt;
-		vl53_alt = d;
-		alt_timout_cnt = ctime;
-	}
-	else {
-		int dt = ctime - alt_timout_cnt;
-		if (dt > 70) {
-			vl53_alt = 2000;
-			// alt_timout_cnt = ctime;
-		}
-	}
-}
-
 void imu_loop(void){
 	static uint64_t l_time_us = 0;
 
 	if (status != 0 ){imu_init(); return ;}
 
-	// reading the altitude
-	if ((int)params_GetParamValue(ALT_MAX) > 0) Update_altitude();
-
+	
 	vector EstA, EstG;
 	short t;
-	int ret = MPU_GetDataFloat(EstA.value, EstG.value, &t);
-	if (ret != 0) {imu_init(); return;}
+	if (MPU_GetDataFloat(EstA.value, EstG.value, &t) != HAL_OK ) {imu_init(); return;}
 
 	uint64_t c_time_us = system_getTime_us();
-
-	float dt = (c_time_us - l_time_us);
-	float kp = params_GetParamValue(PARAM_P_KP);
-	float ki = params_GetParamValue(PARAM_P_KI);
-
 	if (l_time_us  == 0 ) {l_time_us = c_time_us; return;} //first cycle. when haven't l_time.
-	l_time_us = c_time_us;
 
 	// Preparing gyro data..
 	gyro = vector_addVector(vector_muxConst(EstG, lsb2dps_gyro), gyro_offs);
@@ -193,9 +167,6 @@ void imu_loop(void){
 	// Preparing acc data..	 convert "raw" data to "g" data and add offset
 	acc = vector_addVector(vector_muxConst(EstA, lsb2g_acc), acc_offs);
 	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) imu_accCalibrate(); 	// calibrate acc, if motor not launched, if necessary
-
-	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) kp = params_GetParamValue(PARAM_P_KP);
-	else kp = params_GetParamValue(PARAM_P_KP_ARM);
 
 	// TODO heavy while launched motors
 	// #define sq(x) ((x)*(x))
@@ -208,6 +179,15 @@ void imu_loop(void){
 	// 	HAL_GPIO_WritePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin, GPIO_PIN_RESET);
 	// 	params_GetParamValue(PARAM_FL_KP);
 	// }
+
+	float dt = (c_time_us - l_time_us);
+	float ki = params_GetParamValue(PARAM_P_KI);
+	float kp;
+
+	l_time_us = c_time_us;
+	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) kp = params_GetParamValue(PARAM_P_KP);
+	else kp = params_GetParamValue(PARAM_P_KP_ARM);
+
 
 	MahonyUpdateVariables(dt*1e-6f, kp, ki);
 
@@ -237,11 +217,11 @@ void imu_loop(void){
 void imu_autoCalibrateByNoize(int stop){
 	static uint32_t l_time = 0;
 	uint32_t time = system_getTime_ms();
-	static vector average = {.axis.x=0,.axis.y=0,.axis.z=0}; 	//for get average data
-	static vector min = {.axis.x=LIMIT,.axis.y=LIMIT,.axis.z=LIMIT}, max = {.axis.x=-LIMIT,.axis.y=-LIMIT,.axis.z=-LIMIT};
+	static vector average; 		//for get average data
+	static vector min,max;
 	static vector diff_last = {.axis.x=2*LIMIT,.axis.y=2*LIMIT,.axis.z=2*LIMIT};	// save the best result is in terms of noise
 	//
-	static int nStop = 0;
+	static int nStop = 1; 	// not to count the first time and set default values
 	static uint32_t cnt = 0;	// count new data
 
 	if (statusCalibrateGyro < -1) {	// reset calibrate
@@ -271,7 +251,6 @@ void imu_autoCalibrateByNoize(int stop){
 			
 			// gyro_offs -= average gyro data
 			gyro_offs = vector_removeVector(gyro_offs, vector_divConst(average, (float)cnt));
-
 			diff_last = diff_res;
 			statusCalibrateGyro = 0;
 		}
@@ -343,10 +322,10 @@ vector vector_setConst(vector axes, float Value){
 	for (int i=0;i<AXES_ALL;i++) axes.value[i]=Value;
 	return axes;
 }
-vector vector_addConst(vector axes, float Value){
-	for (int i=0;i<AXES_ALL;i++) axes.value[i]+=Value;
-	return axes;
-}
+// vector vector_addConst(vector axes, float Value){
+// 	for (int i=0;i<AXES_ALL;i++) axes.value[i]+=Value;
+// 	return axes;
+// }
 vector vector_muxConst(vector axes, const float Value){
 	for (int i=0;i<AXES_ALL;i++) axes.value[i]*=Value;
 	return axes;

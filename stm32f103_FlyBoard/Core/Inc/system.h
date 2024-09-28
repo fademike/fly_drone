@@ -16,9 +16,8 @@ typedef enum  {
 
 typedef enum  {
 	THREAD_ENABLE			= 0,
-	THREAD_T_STARTUP		= 1,
-	THREAD_T_INTERVAL		= 2,
-	THREAD_T_PRERUN			= 3,
+	THREAD_T_INTERVAL		= 1,
+	THREAD_T_PRERUN			= 2,
 } thread_variables;
 
 void system_changeThread(int name, int param, int value);

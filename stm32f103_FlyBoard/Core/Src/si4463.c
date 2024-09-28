@@ -43,7 +43,7 @@ int8_t SI446X_WAIT_CTS( void )
 {
 	uint8_t cTemp = 0x44;
 	uint8_t cts;
-    uint16_t timeout = 1000;
+    // uint16_t timeout = 1000;
     do
     {
     	SPI_Set_NSS(0);
@@ -52,8 +52,7 @@ int8_t SI446X_WAIT_CTS( void )
         cts = SPI_TxRxData(0x00);
         
         SPI_Set_NSS(1);
-        // if (timeout > 0) timeout--;
-        // else return -1;
+        // if (timeout-- <= 0) return -1;
     } while( cts != 0xFF );
     return 0;
 }

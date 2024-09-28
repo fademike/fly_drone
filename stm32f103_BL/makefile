@@ -1,8 +1,8 @@
 
 NAME=stm32f103_BL
 
-GCC_DIR=/home/fademike/Programs/STMicroelectronics/stm32cubeide_1.7.0/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.9-2020-q2-update.linux64_2.0.0.202105311346/tools/bin
-#GCC_DIR=/usr/bin
+# GCC_DIR=/home/fademike/Programs/STMicroelectronics/stm32cubeide_1.7.0/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.9-2020-q2-update.linux64_2.0.0.202105311346/tools/bin
+GCC_DIR=/usr/bin
 GCC = $(GCC_DIR)/arm-none-eabi-gcc
 OBJCOPY = $(GCC_DIR)/arm-none-eabi-objcopy
 SIZE = $(GCC_DIR)/arm-none-eabi-size
@@ -27,7 +27,7 @@ INC += -I ./Inc/mavlink/common
 DEFS=-DSTM32F103xB
 # OPTIMIZATION=-O0 -g3 -DDEBUG
 OPTIMIZATION=-Os
-OPTIMIZATION += -g3 -DDEBUG
+# OPTIMIZATION += -g3 -DDEBUG
 
 CCFLAGS =-mcpu=cortex-m3 -mthumb -mfloat-abi=soft -DUSE_HAL_DRIVER $(DEFS) $(OPTIMIZATION) -Wall -fmessage-length=0 -ffunction-sections -c 
 
@@ -41,11 +41,16 @@ FILES_S := $(foreach dir,$(SRCDIR),$(wildcard $(dir)/*.s))
 OBJECTS = $(patsubst %.c, $(OUTDIR)/%.o,${FILES_C})
 OBJECTS += $(patsubst %.s, $(OUTDIR)/%.o,${FILES_S})
 
-all: $(OUTDIR)/$(NAME).bin
+
+all: makefile $(OUTDIR)/$(NAME).bin
 
 clean:
 	-rm -Rf $(OUTDIR)/
 load: $(OUTDIR)/$(NAME).elf
+	@echo load
+	~/Programs/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=swd -w $(OUTDIR)/$(NAME).bin 0x08000000 --verify -rst
+
+debug: $(OUTDIR)/$(NAME).elf
 	@echo load
 	~/Programs/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI -c port=swd -w $(OUTDIR)/$(NAME).bin 0x08000000 --verify -rst
 

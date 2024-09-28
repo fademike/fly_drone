@@ -75,6 +75,7 @@ void Error_Handler(void);
 void Printf(const char *fmt, ...);
 //void SendMSG(const char *fmt, ...);//(char * str);
 
+// #define Printf printf
 
 void SYS_myTick(void);
 uint32_t Get_tick(void);

@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -38,6 +39,8 @@
 
 #include "ModemControl.h"
 #include "MotorControl.h"
+
+#include "task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -70,6 +73,20 @@ TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart1;
 
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for myTask02 */
+osThreadId_t myTask02Handle;
+const osThreadAttr_t myTask02_attributes = {
+  .name = "myTask02",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -85,6 +102,9 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART1_UART_Init(void);
+void StartDefaultTask(void *argument);
+void StartTask02(void *argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -104,10 +124,11 @@ uint32_t Get_tick(void){
   return tick_ms;
 }
 
-// void HAL_IncTick(void)
-// {
-//   uwTick += uwTickFreq;
-// }
+void HAL_IncTick(void)
+{
+  uwTick += uwTickFreq;
+  SYS_myTick();
+}
 
 void SYS_myTick(void)  // IRQ 1 ms
 {
@@ -116,9 +137,9 @@ void SYS_myTick(void)  // IRQ 1 ms
   if (htim1.Instance != 0)__HAL_TIM_SET_COUNTER(&htim1, 0); // reset for timer counter us
 }
 
-//void Printf(const char *fmt, ...){
+// void Printf(const char *fmt, ...){
 //  HAL_UART_Transmit(&huart1, (unsigned char *)fmt, strlen(fmt), 500);
-//}
+// }
 #include <stdarg.h>
 void Printf(const char *fmt, ...)
 {
@@ -128,7 +149,7 @@ void Printf(const char *fmt, ...)
   vsprintf(buf, fmt, lst);
   va_end(lst);
   HAL_UART_Transmit(&huart1, (unsigned char *)buf, strlen(buf), 500);
-  if (ModemControl_getStatus()>=0) mavlink_send_statustext(buf);
+  // if (ModemControl_getStatus()>=0) mavlink_send_statustext(buf);
 }
 
 // for printf. the size is larger on 2k
@@ -212,50 +233,49 @@ int main(void)
 
   /* USER CODE END 2 */
 
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+  /* creation of myTask02 */
+  myTask02Handle = osThreadNew(StartTask02, NULL, &myTask02_attributes);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    HAL_IWDG_Refresh(&hiwdg);
-
-    int thread = Thread_Cycle();
-
-    switch (thread){
-        case(THREAD_IMU_LOOP):
-          imu_loop();
-          break;
-        case(THREAD_TEST):
-          // static int ii=0;
-          // Printf("test %d\n\r", ii++);
-          HAL_GPIO_TogglePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin);
-          if (MotorControl_isArmed()) system_changeThread(THREAD_TEST, THREAD_T_INTERVAL, 100);
-          else system_changeThread(THREAD_TEST, THREAD_T_INTERVAL, 500);  //500
-
-          // int alt_max = (int)params_GetParamValue(ALT_MAX);
-          // if ((alt_max > 0) && (!MotorControl_isArmed())){
-          //   int dist = imu_getAlt();
-          //   Printf("dist = %d\n\r", dist);
-          // }
-          break;
-        case(THREAD_MODEMCONTROL):
-          mavlink_loop();
-          if (ModemControl_Loop() == 1){  // if rx data pack
-            uint8_t buff_pack[64];
-            int32_t rx_len = ModemControl_GetPacket(buff_pack);
-            mavlink_receive_pack(buff_pack, rx_len);  // send packet to parse
-          }
-          break;
-        case(THREAD_MAV_SEND_ATTITUDE):
-          mavlink_send_attitude();
-          break;
-        case(THREAD_MAV_SEND_STATUS):
-          mavlink_send_heartbeat();
-          mavlink_send_status();
-          break;
-        case(THREAD_ADC):
-          Battery_Read();
-          break;
-    }
 
     /* USER CODE END WHILE */
 
@@ -719,6 +739,91 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+  /* USER CODE BEGIN 5 */
+
+
+  portTickType xLastWakeTime;
+  xLastWakeTime = xTaskGetTickCount();
+
+  /* Infinite loop */
+  for(;;)
+  {
+    // HAL_IWDG_Refresh(&hiwdg);
+
+    vTaskDelayUntil( &xLastWakeTime, ( 1 / portTICK_RATE_MS ) );
+    
+    // vTaskDelay( ( 1 / portTICK_RATE_MS ) );
+
+    imu_loop();
+
+    mavlink_loop();
+    if (ModemControl_Loop() == 1){  // if rx data pack
+      uint8_t buff_pack[64];
+      int32_t rx_len = ModemControl_GetPacket(buff_pack);
+      mavlink_receive_pack(buff_pack, rx_len);  // send packet to parse
+    }
+    // osDelay(1);
+    taskYIELD();
+
+  }
+  /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartTask02 */
+/**
+* @brief Function implementing the myTask02 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTask02 */
+void StartTask02(void *argument)
+{
+  /* USER CODE BEGIN StartTask02 */
+  /* Infinite loop */
+
+  // portTickType xLastWakeTime;
+  // xLastWakeTime = xTaskGetTickCount();
+
+  for(;;)
+  {
+
+    // vTaskDelayUntil( &xLastWakeTime, ( 1000 / portTICK_RATE_MS ) );
+    
+    vTaskDelay(200);
+
+    // static int i=0;
+    // Printf("Task. %d.\n\r", i++);
+
+    taskYIELD();
+    HAL_GPIO_TogglePin(PIN_TEST_GPIO_Port, PIN_TEST_Pin);
+    taskYIELD();
+    mavlink_send_attitude();
+    taskYIELD();
+    mavlink_send_heartbeat();
+    taskYIELD();
+    mavlink_send_status();
+    taskYIELD();
+    Battery_Read();
+
+    HAL_IWDG_Refresh(&hiwdg);
+
+    taskYIELD();
+
+
+
+  }
+  /* USER CODE END StartTask02 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

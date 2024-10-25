@@ -27,10 +27,14 @@ void system_changeThread(int name, int param, int value){
 }
 
 uint64_t system_getTime_us(void){
-	//uint64_t local_time_us = 0;
-	uint64_t local_time_us = HAL_GetTick()*1000;
-	int addition_us = __HAL_TIM_GET_COUNTER(&htim1);
-	local_time_us += addition_us;
+	uint64_t ms;
+	uint64_t local_time_us = 0;
+	// return system_getTime_ms()*1000;
+	do{
+		ms = HAL_GetTick();
+		local_time_us = ms*1000;
+		local_time_us += (uint32_t) __HAL_TIM_GET_COUNTER(&htim1);
+	} while (ms != HAL_GetTick());
 	return local_time_us;
 }
 

@@ -31,7 +31,7 @@ OPTIMIZATION=-Os
 
 CCFLAGS =-mcpu=cortex-m3 -mthumb -mfloat-abi=soft -DUSE_HAL_DRIVER $(DEFS) $(OPTIMIZATION) -Wall -fmessage-length=0 -ffunction-sections -c 
 
-LDFLAGS=-mcpu=cortex-m3 -mthumb -mfloat-abi=soft -specs=nosys.specs -specs=nano.specs -T$(LD_SCRIPT) -Wl,--gc-sections -lm
+LDFLAGS=-mcpu=cortex-m3 -mthumb -mfloat-abi=soft -specs=nosys.specs -specs=nano.specs -T$(LD_SCRIPT) -Wl,--gc-sections -lm $(OPTIMIZATION)
 #LDFLAGS+=-Wl,--print-memory-usage
 #LDFLAGS+=Wl,-Map=$(OUTDIR)/output.map
 

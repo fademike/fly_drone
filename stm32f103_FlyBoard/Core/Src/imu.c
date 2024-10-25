@@ -188,7 +188,6 @@ void imu_loop(void){
 	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) kp = params_GetParamValue(PARAM_P_KP);
 	else kp = params_GetParamValue(PARAM_P_KP_ARM);
 
-
 	MahonyUpdateVariables(dt*1e-6f, kp, ki);
 
 	// updating params for imu orientation

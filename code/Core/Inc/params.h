@@ -1,7 +1,7 @@
 
 // define for motor get params...
 #define PARAM_MOTOR_LEN 4	//ACTION,MIN,MAX,..
-#define PARAM_PID_LEN 4		//P,I,D,CHAN
+#define PARAM_PID_LEN 5		//P,I,D,CHAN, OFFSET
 
 // to access the parameters
 enum {
@@ -13,21 +13,25 @@ enum {
 	PARAM_PID_T_D,
 	PARAM_PID_T_I,
 	PARAM_PID_T_MUX_CHAN,
-
+	PARAM_PID_T_OFFSET,
+	
 	PARAM_PID_P_P,
 	PARAM_PID_P_D,
 	PARAM_PID_P_I,
 	PARAM_PID_P_MUX_CHAN,
+	PARAM_PID_P_OFFSET,
 
 	PARAM_PID_R_P,
 	PARAM_PID_R_D,
 	PARAM_PID_R_I,
 	PARAM_PID_R_MUX_CHAN,
+	PARAM_PID_R_OFFSET,
 
 	PARAM_PID_Y_P,
 	PARAM_PID_Y_D,
 	PARAM_PID_Y_I,
 	PARAM_PID_Y_MUX_CHAN,
+	PARAM_PID_Y_OFFSET,
 
 	PARAM_P_KP_ARM,
 	PARAM_P_KI,
@@ -60,7 +64,7 @@ enum {
 	// PARAM_M4_INIT,
 	PARAM_M4_OFFSET,
 
-	ALT_MAX,
+	PARAM_ALT_MAX,
 
 	PARAM_P_MODE,
 
@@ -73,6 +77,10 @@ enum {
 	MEM_CLB_AY,
 	MEM_CLB_AZ,
 };
+
+#define IS_SET_BIT(x, i) (((i)&(0x1<<x)) != 0)
+#define P_BIT_IMU_NOT_USE 		0		// Do not use angels from imu if set
+#define P_BIT_WITHOUT_RESET 	1		// If not set - reset motors, pids to default, when throttle equal 0 
 
 union param_value{
 	float FLOAT;

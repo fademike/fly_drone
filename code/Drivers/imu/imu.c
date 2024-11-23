@@ -53,7 +53,7 @@ float imu_getRoll(void){return imuAngle.angle.roll;}
 float imu_getYaw(void){return imuAngle.angle.yaw;}
 int imu_getAlt(void){
 	int alt = 0;//get_altitude();
-	int alt_max = (int)params_GetParamValue(ALT_MAX);
+	int alt_max = (int)params_GetParamValue(PARAM_ALT_MAX);
 	if (alt_max > 0) {
 		alt = get_altitude();
 		alt *= 1000.0f/(float)alt_max;	//convert 
@@ -201,10 +201,12 @@ void imu_loop(void){
 	// change sig and rearranging values from orientation
 	vector a = vector_rearranging(vector_muxVector(acc, dat_a_sig), dat_r);
 
-	MahonyAHRSupdateIMU(g.axis.x, g.axis.y, g.axis.z, a.axis.x, a.axis.y, a.axis.z);
-	MahonyGetAngles(&imuAngle.angle.pitch, &imuAngle.angle.roll, &imuAngle.angle.yaw);
+	vector AngleTmp;
 
-	imuAngle = vector_muxConst(imuAngle, 180.0/M_PI); // convert rad to deg
+	MahonyAHRSupdateIMU(g.axis.x, g.axis.y, g.axis.z, a.axis.x, a.axis.y, a.axis.z);
+	MahonyGetAngles(&AngleTmp.angle.pitch, &AngleTmp.angle.roll, &AngleTmp.angle.yaw);
+
+	imuAngle = vector_muxConst(AngleTmp, 180.0/M_PI); // convert rad to deg
 
 // static int d=0;
 // if (d++ >=0){

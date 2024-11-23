@@ -1,5 +1,28 @@
 
+/*
 
+MotorControl_loop():
+Example for PITCH Chan to M1:
+/--------------------\  /---------------------\  /----------------------\
+| Chan[PITCH]        |->| -PARAM_PID_P_OFFSET |->|*PARAM_PID_P_MUX_CHAN |
+| from mavlink       |  | (-chan_p_offset)    |  | (*chan_p_mux)        |
+|                    |  | /1000               |  |                      |
+| Values:1000-2000   |  | OUT: -0.5...0.5 *   |  |                      |
+\--------------------/  \---------------------/  \----------------------/
+/---PWM------\  /---MOTOR-SETTINGS-----------------\              |
+|            |  | PARAM_M1_ACTION  (m1_action)     |  /-----\     |   /----------\
+|            |  | (m1_action set to +force[PITCH]) |  | PID |<----+--| IMU pitch  |
+|            |<-| +PARAM_M1_OFFSET (m1_offset)     |  |     |         \----------/
+|            |  | PARAM_M1_MIN     (m1_min)        |  \-----/         
+|-ApplyMotor-|  | PARAM_M1_MAX     (m1_max)        |     |
+\-Values()---/  \---SetMotorValues()---------------/   force[PITCH]
+
+*- for throttle out values: 0..1
+
+PARAM_P_MODE: 	bit 0		// Do not use angels from imu if set (pitch=0, rol=0...)
+				bit 1		// If not set - reset motors, pids to default, when throttle equal 0 
+
+*/
 
 
 #include "stm32f1xx.h"
@@ -11,16 +34,22 @@
 
 void UpdateFromParam(void);
 
+#define DECREASE_ANGLE(angel) {while (angel <-180) angel += 360.0f; while (angel>180) angel -= 360.0f;}
+
 typedef struct {
-	unsigned int throttle_p	:1;
-	unsigned int throttle_m	:1;
+	unsigned int throttle_p	:1;	// + throttle
+	unsigned int throttle_m	:1; // - throttle
 	unsigned int pitch_p	:1;
 	unsigned int pitch_m	:1;
+
 	unsigned int roll_p		:1;
 	unsigned int roll_m		:1;
 	unsigned int yaw_p		:1;
 	unsigned int yaw_m		:1;
-	unsigned int brashed	:1;
+	
+	unsigned int brashed	:1;	// set 1 when used all brashed motor. it is set PWM 0..MAX
+	                            // set 0 when used servo or esc with 1..2ms impulse
+
 } motor_action_struct;
 
 typedef struct
@@ -144,10 +173,10 @@ void MotorControl_loop(void){
 
 	uint32_t delay_update = mavlink_getChanUpdateTimer();
 
-	float Throll_Chan = ((float)(mavlink_getChan(THROTTLE)-1000))/1000.0f;	// 0...1
-	float Yaw_Chan = ((float)(mavlink_getChan(YAW)-1500))/1000.0f;			// -0.5...0.5
-	float Pitch_Chan = ((float)(mavlink_getChan(PITCH)-1500))/1000.0f;
-	float Roll_Chan = ((float)(mavlink_getChan(ROLL)-1500))/1000.0f;
+	float Throll_Chan = ((float)(mavlink_getChan(THROTTLE)-1000) - params_GetParamValue(PARAM_PID_T_OFFSET))/1000.0f;	// 0...1
+	float Yaw_Chan = ((float)(mavlink_getChan(YAW)-1500) - params_GetParamValue(PARAM_PID_Y_OFFSET))/1000.0f;			// -0.5...0.5
+	float Pitch_Chan = ((float)(mavlink_getChan(PITCH)-1500) - params_GetParamValue(PARAM_PID_P_OFFSET))/1000.0f;
+	float Roll_Chan = ((float)(mavlink_getChan(ROLL)-1500) - params_GetParamValue(PARAM_PID_R_OFFSET))/1000.0f;
 
 	if (delay_update > 2000){	// if you haven't received chain any more
 		if ( MotorControl_getState() == MOTOR_STATUS_LAUNCHED) Printf("ALARM STOP\n\r");
@@ -161,41 +190,27 @@ void MotorControl_loop(void){
 	static float Yaw_Chan_muxed = 0;
 #define YAW_UPDATED_FREQ 10.0f // Hz 
 	Yaw_Chan_muxed += Yaw_Chan * params_GetParamValue(PARAM_PID_Y_MUX_CHAN)/YAW_UPDATED_FREQ;
-	if (Yaw_Chan_muxed > 180)Yaw_Chan_muxed -= 360.0f;
-	if (Yaw_Chan_muxed < -180)Yaw_Chan_muxed += 360.0f;
-
+	DECREASE_ANGLE(Yaw_Chan_muxed);
 
 	static float yaw_base = 0;
 	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) {yaw_base = yaw; Yaw_Chan_muxed = 0;}
 	yaw = yaw - yaw_base;
-	while (yaw <-180) yaw += 360.0f;
-	while (yaw>180) yaw -= 360.0f;
+	DECREASE_ANGLE(yaw);
 
-	if (params_GetParamValue(PARAM_P_MODE) == MODE_CAR){
-		pitch = 0;
-		roll = 0;
-		yaw = 0;
-		alt = 0;
+	if (IS_SET_BIT(P_BIT_IMU_NOT_USE, (int)params_GetParamValue(PARAM_P_MODE))){	// if do not use imu
+		pitch = roll = yaw = alt = 0;
 	}
 
 	float force[4];
 	force[THROTTLE] = SetPID(&mPID[THROTTLE], Throll_Chan_muxed - alt, 0);
 	force[PITCH] = SetPID(&mPID[PITCH], pitch + Pitch_Chan_muxed, 0);
 	force[ROLL] = SetPID(&mPID[ROLL], roll + Roll_Chan_muxed, 0);
-	force[YAW] = SetPID(&mPID[YAW], yaw + Yaw_Chan_muxed, 0);
+	force[YAW] = SetPID(&mPID[YAW], yaw + Yaw_Chan_muxed, 0);	// FIXME!!! problem of crossing the circle
 
 	SetMotorValues(force[THROTTLE], force[PITCH], force[ROLL], force[YAW], motor);
 
-	if (//(params_GetParamValue(PARAM_P_MODE) != MODE_CAR) &&
-		 (Throll_Chan <= 0)) ApplyMotorValues(motor, 1);	// reset motor
-	else ApplyMotorValues(motor, 0);
-
-	// static int d=0;
-	// if (d++>20){d=0;
-	// 	// Printf("%d,%d,%d,%d", (int)force[THROTTLE], (int)Throll_Chan_muxed, (int)filter_out, (int)alt);
-	// 	Printf("%d,%d,%d,%d", (int)motor[0], (int)(int)motor[1], (int)(int)motor[2], (int)(int)motor[3]);
-	// 	// Printf("%d,%d,%d,%d", (int)(Throll_Chan*1000.0f), (int)Throll_Chan_muxed, (int)filter_out, (int)alt);
-	// }
+	ApplyMotorValues(motor, ((int)(Throll_Chan*1000.0f) == 0) && 
+							!IS_SET_BIT(P_BIT_WITHOUT_RESET, (int)params_GetParamValue(PARAM_P_MODE)));
 }
 
 
